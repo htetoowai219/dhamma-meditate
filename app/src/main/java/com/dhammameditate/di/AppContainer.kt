@@ -3,6 +3,7 @@ package com.dhammameditate.di
 import android.content.Context
 import com.dhammameditate.data.importer.AudioFileImporter
 import com.dhammameditate.data.local.AppDatabase
+import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
 import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackStateStore
@@ -16,6 +17,15 @@ class AppContainer(context: Context) {
 
     val trackRepository: TrackRepository by lazy {
         TrackRepository(appContext, database.trackDao())
+    }
+
+    val sessionRepository: SessionRepository by lazy {
+        SessionRepository(
+            database = database,
+            sessionDao = database.sessionDao(),
+            trackDao = database.trackDao(),
+            trackRepository = trackRepository
+        )
     }
 
     val audioFileImporter: AudioFileImporter by lazy {

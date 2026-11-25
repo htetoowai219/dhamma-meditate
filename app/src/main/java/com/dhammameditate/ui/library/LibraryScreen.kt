@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -23,8 +22,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
@@ -43,9 +44,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,8 +52,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dhammameditate.data.local.TrackEntity
-import com.dhammameditate.playback.PlaybackSnapshot
 import com.dhammameditate.playback.TimerValidation
+import com.dhammameditate.ui.common.ActiveSessionBanner
 import com.dhammameditate.ui.theme.AlertRed
 import com.dhammameditate.ui.theme.AlertSurface
 import com.dhammameditate.ui.theme.CardSurface
@@ -72,10 +70,10 @@ import com.dhammameditate.ui.theme.WhiteMuted
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel,
-    onOpenTrack: (String) -> Unit
+    onOpenTrack: (String) -> Unit,
+    onOpenActivePlayback: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var pendingDeleteTrack by remember { mutableStateOf<TrackEntity?>(null) }
 
     val documentPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -97,11 +95,10 @@ fun LibraryScreen(
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            val activeTrackId = uiState.playback.activeTrackId
-            if (uiState.playback.isActive && activeTrackId != null) {
+            if (uiState.playback.isActive) {
                 ActiveSessionBanner(
                     playback = uiState.playback,
-                    onClick = { onOpenTrack(activeTrackId) },
+                    onClick = onOpenActivePlayback,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)
                 )
             }
@@ -140,19 +137,17 @@ fun LibraryScreen(
                             track = track,
                             isActiveTrack = uiState.playback.isActive && uiState.playback.activeTrackId == track.id,
                             onClick = { onOpenTrack(track.id) },
-                            onDeleteClick = { pendingDeleteTrack = track }
+                            onDeleteClick = { viewModel.requestDeleteTrack(track) }
                         )
                     }
                 }
             }
         }
 
-        // Anchored flat primary CTA
+        // Anchored flat primary CTA above bottom NavigationBar
         Surface(
             color = LightNeutral,
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Button(
                 onClick = {
@@ -173,7 +168,7 @@ fun LibraryScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
                     .height(54.dp)
             ) {
                 if (uiState.isImporting) {
@@ -197,9 +192,14 @@ fun LibraryScreen(
         }
     }
 
-    pendingDeleteTrack?.let { track ->
+    uiState.pendingTrackDeletion?.let { pending ->
+        val track = pending.track
+        val summary = pending.referenceSummary
+        val isTrackInActivePlayback = uiState.playback.isActive &&
+            (uiState.playback.activeTrackId == track.id || track.id in uiState.playback.activeTrackIds)
+
         AlertDialog(
-            onDismissRequest = { pendingDeleteTrack = null },
+            onDismissRequest = viewModel::dismissDeleteTrack,
             containerColor = CardSurface,
             titleContentColor = InkPrimary,
             textContentColor = InkSecondary,
@@ -212,19 +212,51 @@ fun LibraryScreen(
                 )
             },
             text = {
-                Text(
-                    text = "Remove \"${track.title}\" from your offline library? This deletes the app-private audio copy.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = InkSecondary
-                )
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Remove \"${track.title}\" from your offline library? This deletes the app-private audio copy.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkSecondary
+                    )
+                    if (isTrackInActivePlayback) {
+                        Text(
+                            text = "Active playback using this track will stop and reset.",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = AlertRed
+                        )
+                    }
+                    if (summary.isReferenced) {
+                        Text(
+                            text = "Used in ${summary.affectedSessions.size} saved ${if (summary.affectedSessions.size == 1) "session" else "sessions"} (timers will adjust if shortened):",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = InkPrimary
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            summary.affectedSessions.forEach { affected ->
+                                Column {
+                                    Text(
+                                        text = "• ${affected.sessionName}",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                        color = InkPrimary
+                                    )
+                                    if (affected.willEmptyMainQueue) {
+                                        Text(
+                                            text = "  Will need a new Main track before playing",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = AlertRed
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteTrack(track)
-                        pendingDeleteTrack = null
-                    }
-                ) {
+                TextButton(onClick = viewModel::confirmDeleteTrack) {
                     Text(
                         text = "Delete",
                         style = MaterialTheme.typography.labelLarge,
@@ -233,7 +265,7 @@ fun LibraryScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDeleteTrack = null }) {
+                TextButton(onClick = viewModel::dismissDeleteTrack) {
                     Text(
                         text = "Cancel",
                         style = MaterialTheme.typography.labelLarge,
@@ -265,62 +297,6 @@ private fun LibraryHeader() {
             style = MaterialTheme.typography.bodyMedium,
             color = WhiteMuted
         )
-    }
-}
-
-@Composable
-private fun ActiveSessionBanner(
-    playback: PlaybackSnapshot,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val title = playback.activeTrackTitle ?: "Active Track"
-    val remaining = TimerValidation.formatDuration(playback.remainingMs)
-    Surface(
-        color = MonasticMaroon,
-        shape = RoundedCornerShape(16.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Saffron),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.GraphicEq,
-                    contentDescription = "Active meditation session",
-                    tint = PureWhite,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Active Session · $title · $remaining",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = PureWhite,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Outlined.ChevronRight,
-                contentDescription = "Return to session",
-                tint = WhiteMuted,
-                modifier = Modifier.size(20.dp)
-            )
-        }
     }
 }
 

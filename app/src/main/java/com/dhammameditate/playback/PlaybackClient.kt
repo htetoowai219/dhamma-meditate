@@ -22,6 +22,15 @@ class PlaybackClient(
         context.startService(intent)
     }
 
+    fun startSavedSession(sessionId: String) {
+        stateStore.clearError()
+        val intent = Intent(context, MeditationPlaybackService::class.java).apply {
+            action = MeditationPlaybackService.ACTION_START_SAVED_SESSION
+            putExtra(MeditationPlaybackService.EXTRA_SESSION_ID, sessionId)
+        }
+        context.startService(intent)
+    }
+
     fun pause() {
         val intent = Intent(context, MeditationPlaybackService::class.java).apply {
             action = MeditationPlaybackService.ACTION_PAUSE_SESSION
@@ -48,16 +57,43 @@ class PlaybackClient(
         if (current.errorTrackId == trackId) {
             stateStore.clearError()
         }
-        if (current.activeTrackId != trackId) return
+        val isTrackLoaded = current.activeTrackId == trackId || trackId in current.activeTrackIds
+        if (!isTrackLoaded) return
+
         val intent = Intent(context, MeditationPlaybackService::class.java).apply {
             action = MeditationPlaybackService.ACTION_STOP_IF_TRACK
             putExtra(MeditationPlaybackService.EXTRA_TRACK_ID, trackId)
         }
         context.startService(intent)
         val cleared = withTimeoutOrNull(STOP_WAIT_TIMEOUT_MS) {
-            stateStore.state.first { it.activeTrackId != trackId }
+            stateStore.state.first { snapshot ->
+                snapshot.activeTrackId != trackId && trackId !in snapshot.activeTrackIds
+            }
         }
-        if (cleared == null && stateStore.state.value.activeTrackId == trackId) {
+        val latest = stateStore.state.value
+        if (cleared == null && (latest.activeTrackId == trackId || trackId in latest.activeTrackIds)) {
+            stateStore.set(PlaybackSnapshot())
+        }
+    }
+
+    suspend fun stopIfActiveSessionAndWait(sessionId: String) {
+        val current = stateStore.state.value
+        if (current.errorSessionId == sessionId) {
+            stateStore.clearError()
+        }
+        if (current.activeSessionId != sessionId) return
+
+        val intent = Intent(context, MeditationPlaybackService::class.java).apply {
+            action = MeditationPlaybackService.ACTION_STOP_IF_SESSION
+            putExtra(MeditationPlaybackService.EXTRA_SESSION_ID, sessionId)
+        }
+        context.startService(intent)
+        val cleared = withTimeoutOrNull(STOP_WAIT_TIMEOUT_MS) {
+            stateStore.state.first { snapshot ->
+                snapshot.activeSessionId != sessionId
+            }
+        }
+        if (cleared == null && stateStore.state.value.activeSessionId == sessionId) {
             stateStore.set(PlaybackSnapshot())
         }
     }

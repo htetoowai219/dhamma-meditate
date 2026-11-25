@@ -29,7 +29,9 @@ data class PlayerUiState(
     val errorMessage: String? = null
 ) {
     val isTimerLocked: Boolean
-        get() = status == PlaybackStatus.PLAYING ||
+        get() = status == PlaybackStatus.INTRO_PLAYING ||
+            status == PlaybackStatus.INTRO_PAUSED ||
+            status == PlaybackStatus.PLAYING ||
             status == PlaybackStatus.PAUSED ||
             status == PlaybackStatus.FADING
 
@@ -77,6 +79,7 @@ class PlayerViewModel(
             }
             val activePlayback = playbackClient.state.value
             val initialDuration = if (
+                activePlayback.activeSessionId == null &&
                 activePlayback.activeTrackId == trackId &&
                 activePlayback.targetDurationMs > 0L
             ) {
@@ -102,7 +105,7 @@ class PlayerViewModel(
         local: LocalSelectionState,
         playback: PlaybackSnapshot
     ): PlayerUiState {
-        val isThisTrackLoaded = playback.activeTrackId == trackId
+        val isThisTrackLoaded = playback.activeSessionId == null && playback.activeTrackId == trackId
         val status = if (isThisTrackLoaded) playback.status else PlaybackStatus.IDLE
 
         val displayedRemainingMs: Long
@@ -123,7 +126,11 @@ class PlayerViewModel(
             playback.errorMessage != null &&
             (
                 playback.errorTrackId == trackId ||
-                    (playback.errorTrackId == null && (isThisTrackLoaded || playback.activeTrackId == null))
+                    (
+                        playback.errorTrackId == null &&
+                            playback.errorSessionId == null &&
+                            (isThisTrackLoaded || playback.activeTrackId == null)
+                        )
                 )
         ) {
             playback.errorMessage

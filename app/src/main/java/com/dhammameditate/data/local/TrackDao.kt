@@ -14,6 +14,9 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): TrackEntity?
 
+    @Query("SELECT * FROM tracks WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<TrackEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(track: TrackEntity)
 

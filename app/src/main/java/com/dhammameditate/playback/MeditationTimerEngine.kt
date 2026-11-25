@@ -2,6 +2,8 @@ package com.dhammameditate.playback
 
 enum class PlaybackStatus {
     IDLE,
+    INTRO_PLAYING,
+    INTRO_PAUSED,
     PLAYING,
     PAUSED,
     FADING,
@@ -20,6 +22,10 @@ data class TimerTick(
  * Pure monotonic meditation timer state machine.
  * Elapsed and remaining times are derived solely from monotonic clock deltas,
  * never from coroutine delay() tick counts.
+ *
+ * When a session includes an Intro Queue (`hasIntro = true`), the countdown stays
+ * frozen in INTRO_PLAYING / INTRO_PAUSED until `onIntroComplete()` fires once at
+ * the Intro -> Main boundary.
  */
 class MeditationTimerEngine(
     private val clockMs: () -> Long
@@ -31,24 +37,79 @@ class MeditationTimerEngine(
 
     fun currentStatus(): PlaybackStatus = status
 
-    fun start(targetDurationMs: Long, nowMs: Long = clockMs()): TimerTick {
+    fun start(
+        targetDurationMs: Long,
+        hasIntro: Boolean = false,
+        nowMs: Long = clockMs()
+    ): TimerTick {
         require(targetDurationMs > 0L) { "targetDurationMs must be positive" }
         this.targetDurationMs = targetDurationMs
         this.accumulatedElapsedMs = 0L
-        this.segmentStartedAtMs = nowMs
-        val effectiveFade = FadeCurve.effectiveFadeMs(targetDurationMs)
-        this.status = if (targetDurationMs <= effectiveFade) {
-            PlaybackStatus.FADING
+        if (hasIntro) {
+            this.segmentStartedAtMs = null
+            this.status = PlaybackStatus.INTRO_PLAYING
         } else {
-            PlaybackStatus.PLAYING
+            this.segmentStartedAtMs = nowMs
+            val effectiveFade = FadeCurve.effectiveFadeMs(targetDurationMs)
+            this.status = if (targetDurationMs <= effectiveFade) {
+                PlaybackStatus.FADING
+            } else {
+                PlaybackStatus.PLAYING
+            }
         }
         return tick(nowMs)
+    }
+
+    /**
+     * One-shot transition from Intro Queue into Main Queue playback.
+     * Calling this outside INTRO_PLAYING / INTRO_PAUSED is a safe no-op so
+     * subsequent Main -> Main track transitions never re-anchor the timer.
+     */
+    fun onIntroComplete(nowMs: Long = clockMs()): TimerTick {
+        return when (status) {
+            PlaybackStatus.INTRO_PLAYING -> {
+                accumulatedElapsedMs = 0L
+                segmentStartedAtMs = nowMs
+                val effectiveFade = FadeCurve.effectiveFadeMs(targetDurationMs)
+                status = if (targetDurationMs <= effectiveFade) {
+                    PlaybackStatus.FADING
+                } else {
+                    PlaybackStatus.PLAYING
+                }
+                tick(nowMs)
+            }
+
+            PlaybackStatus.INTRO_PAUSED -> {
+                accumulatedElapsedMs = 0L
+                segmentStartedAtMs = null
+                status = PlaybackStatus.PAUSED
+                tick(nowMs)
+            }
+
+            else -> tick(nowMs)
+        }
     }
 
     fun tick(nowMs: Long = clockMs()): TimerTick {
         return when (status) {
             PlaybackStatus.IDLE -> TimerTick(
                 status = PlaybackStatus.IDLE,
+                targetDurationMs = targetDurationMs,
+                elapsedMs = 0L,
+                remainingMs = targetDurationMs,
+                volume = 1.0f
+            )
+
+            PlaybackStatus.INTRO_PLAYING -> TimerTick(
+                status = PlaybackStatus.INTRO_PLAYING,
+                targetDurationMs = targetDurationMs,
+                elapsedMs = 0L,
+                remainingMs = targetDurationMs,
+                volume = 1.0f
+            )
+
+            PlaybackStatus.INTRO_PAUSED -> TimerTick(
+                status = PlaybackStatus.INTRO_PAUSED,
                 targetDurationMs = targetDurationMs,
                 elapsedMs = 0L,
                 remainingMs = targetDurationMs,
@@ -119,6 +180,11 @@ class MeditationTimerEngine(
     }
 
     fun pause(nowMs: Long = clockMs()): TimerTick {
+        if (status == PlaybackStatus.INTRO_PLAYING) {
+            segmentStartedAtMs = null
+            status = PlaybackStatus.INTRO_PAUSED
+            return tick(nowMs)
+        }
         if (status != PlaybackStatus.PLAYING && status != PlaybackStatus.FADING) {
             return tick(nowMs)
         }
@@ -133,6 +199,11 @@ class MeditationTimerEngine(
     }
 
     fun resume(nowMs: Long = clockMs()): TimerTick {
+        if (status == PlaybackStatus.INTRO_PAUSED) {
+            segmentStartedAtMs = null
+            status = PlaybackStatus.INTRO_PLAYING
+            return tick(nowMs)
+        }
         if (status != PlaybackStatus.PAUSED) {
             return tick(nowMs)
         }

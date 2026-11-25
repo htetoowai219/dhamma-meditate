@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.dhammameditate.data.importer.AudioFileImporter
 import com.dhammameditate.data.importer.ImportResult
 import com.dhammameditate.data.local.TrackEntity
+import com.dhammameditate.data.repository.SessionRepository
+import com.dhammameditate.data.repository.TrackReferenceSummary
 import com.dhammameditate.data.repository.TrackRepository
 import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackSnapshot
@@ -22,32 +24,42 @@ data class ImportFailureItem(
     val reason: String
 )
 
+data class PendingTrackDeletion(
+    val track: TrackEntity,
+    val referenceSummary: TrackReferenceSummary
+)
+
 data class LibraryUiState(
     val tracks: List<TrackEntity> = emptyList(),
     val isImporting: Boolean = false,
     val importFailures: List<ImportFailureItem> = emptyList(),
+    val pendingTrackDeletion: PendingTrackDeletion? = null,
     val playback: PlaybackSnapshot = PlaybackSnapshot()
 )
 
 class LibraryViewModel(
     private val trackRepository: TrackRepository,
+    private val sessionRepository: SessionRepository,
     private val audioFileImporter: AudioFileImporter,
     private val playbackClient: PlaybackClient
 ) : ViewModel() {
 
     private val isImporting = MutableStateFlow(false)
     private val importFailures = MutableStateFlow<List<ImportFailureItem>>(emptyList())
+    private val pendingTrackDeletion = MutableStateFlow<PendingTrackDeletion?>(null)
 
     val uiState: StateFlow<LibraryUiState> = combine(
         trackRepository.observeTracks(),
         isImporting,
         importFailures,
+        pendingTrackDeletion,
         playbackClient.state
-    ) { tracks, importing, failures, playback ->
+    ) { tracks, importing, failures, pendingDeletion, playback ->
         LibraryUiState(
             tracks = tracks,
             isImporting = importing,
             importFailures = failures,
+            pendingTrackDeletion = pendingDeletion,
             playback = playback
         )
     }.stateIn(
@@ -83,16 +95,33 @@ class LibraryViewModel(
         importFailures.value = emptyList()
     }
 
-    fun deleteTrack(track: TrackEntity) {
+    fun requestDeleteTrack(track: TrackEntity) {
         viewModelScope.launch {
-            playbackClient.stopIfActiveTrackAndWait(track.id)
-            trackRepository.deleteTrack(track)
+            val summary = sessionRepository.getTrackReferenceSummary(track.id)
+            pendingTrackDeletion.value = PendingTrackDeletion(
+                track = track,
+                referenceSummary = summary
+            )
+        }
+    }
+
+    fun dismissDeleteTrack() {
+        pendingTrackDeletion.value = null
+    }
+
+    fun confirmDeleteTrack() {
+        val pending = pendingTrackDeletion.value ?: return
+        pendingTrackDeletion.value = null
+        viewModelScope.launch {
+            playbackClient.stopIfActiveTrackAndWait(pending.track.id)
+            sessionRepository.deleteTrackSafely(pending.track)
         }
     }
 
     companion object {
         fun factory(
             trackRepository: TrackRepository,
+            sessionRepository: SessionRepository,
             audioFileImporter: AudioFileImporter,
             playbackClient: PlaybackClient
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
@@ -100,6 +129,7 @@ class LibraryViewModel(
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return LibraryViewModel(
                     trackRepository = trackRepository,
+                    sessionRepository = sessionRepository,
                     audioFileImporter = audioFileImporter,
                     playbackClient = playbackClient
                 ) as T

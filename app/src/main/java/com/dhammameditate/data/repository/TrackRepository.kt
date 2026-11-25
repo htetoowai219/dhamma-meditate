@@ -27,9 +27,8 @@ class TrackRepository(
         trackDao.insert(track)
     }
 
-    suspend fun deleteTrack(track: TrackEntity) {
+    suspend fun deleteAudioFile(track: TrackEntity) {
         withContext(Dispatchers.IO) {
-            trackDao.deleteById(track.id)
             val file = resolveAudioFile(track)
             if (file.exists()) {
                 file.delete()

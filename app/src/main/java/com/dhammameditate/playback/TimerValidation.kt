@@ -11,20 +11,26 @@ data class CappedDurationResult(
 object TimerValidation {
     const val MIN_DURATION_MS: Long = 1_000L
     const val DEFAULT_DURATION_MS: Long = 30 * 60_000L
+    const val SCOPE_TRACK: String = "track length"
+    const val SCOPE_MAIN_QUEUE: String = "Main Queue length"
     val PRESET_MINUTES: List<Int> = listOf(10, 15, 30, 45, 60)
 
-    fun defaultDurationMs(trackDurationMs: Long): Long {
-        if (trackDurationMs <= 0L) return 0L
-        return minOf(DEFAULT_DURATION_MS, trackDurationMs)
+    fun defaultDurationMs(maxDurationMs: Long): Long {
+        if (maxDurationMs <= 0L) return 0L
+        return minOf(DEFAULT_DURATION_MS, maxDurationMs)
     }
 
-    fun isPresetEnabled(minutes: Int, trackDurationMs: Long): Boolean {
-        if (minutes <= 0 || trackDurationMs <= 0L) return false
-        return minutes.toLong() * 60_000L <= trackDurationMs
+    fun isPresetEnabled(minutes: Int, maxDurationMs: Long): Boolean {
+        if (minutes <= 0 || maxDurationMs <= 0L) return false
+        return minutes.toLong() * 60_000L <= maxDurationMs
     }
 
-    fun validateCustomMinutes(minutes: Int, trackDurationMs: Long): CappedDurationResult {
-        if (trackDurationMs <= 0L) {
+    fun validateCustomMinutes(
+        minutes: Int,
+        maxDurationMs: Long,
+        scopeLabel: String = SCOPE_TRACK
+    ): CappedDurationResult {
+        if (maxDurationMs <= 0L) {
             return CappedDurationResult(
                 durationMs = 0L,
                 wasCapped = false,
@@ -33,23 +39,60 @@ object TimerValidation {
         }
         val clampedMinutes = minutes.coerceAtLeast(1)
         val requestedMs = clampedMinutes.toLong() * 60_000L
-        return capDurationMs(requestedMs, trackDurationMs)
+        return capDurationMs(requestedMs, maxDurationMs, scopeLabel)
     }
 
-    fun capDurationMs(requestedMs: Long, trackDurationMs: Long): CappedDurationResult {
-        if (trackDurationMs <= 0L) {
+    fun capDurationMs(
+        requestedMs: Long,
+        maxDurationMs: Long,
+        scopeLabel: String = SCOPE_TRACK
+    ): CappedDurationResult {
+        if (maxDurationMs <= 0L) {
             return CappedDurationResult(0L, false, null)
         }
-        val minBound = minOf(MIN_DURATION_MS, trackDurationMs)
-        if (requestedMs > trackDurationMs) {
+        val minBound = minOf(MIN_DURATION_MS, maxDurationMs)
+        if (requestedMs > maxDurationMs) {
             return CappedDurationResult(
-                durationMs = trackDurationMs,
+                durationMs = maxDurationMs,
                 wasCapped = true,
-                noticeMessage = "Adjusted to track length (${formatDuration(trackDurationMs)})"
+                noticeMessage = "Adjusted to $scopeLabel (${formatDuration(maxDurationMs)})"
             )
         }
         return CappedDurationResult(
             durationMs = requestedMs.coerceAtLeast(minBound),
+            wasCapped = false,
+            noticeMessage = null
+        )
+    }
+
+    fun reconcileTimerAfterMainChange(
+        currentDurationMs: Long,
+        previousMainTotalMs: Long,
+        newMainTotalMs: Long
+    ): CappedDurationResult {
+        if (newMainTotalMs <= 0L) {
+            return CappedDurationResult(
+                durationMs = 0L,
+                wasCapped = false,
+                noticeMessage = null
+            )
+        }
+        if (previousMainTotalMs <= 0L || currentDurationMs <= 0L) {
+            return CappedDurationResult(
+                durationMs = defaultDurationMs(newMainTotalMs),
+                wasCapped = false,
+                noticeMessage = null
+            )
+        }
+        if (currentDurationMs > newMainTotalMs) {
+            return CappedDurationResult(
+                durationMs = newMainTotalMs,
+                wasCapped = true,
+                noticeMessage = "Adjusted to $SCOPE_MAIN_QUEUE (${formatDuration(newMainTotalMs)})"
+            )
+        }
+        return CappedDurationResult(
+            durationMs = currentDurationMs,
             wasCapped = false,
             noticeMessage = null
         )

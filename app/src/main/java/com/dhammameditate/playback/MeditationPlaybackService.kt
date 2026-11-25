@@ -23,6 +23,8 @@ import androidx.media3.session.SessionResult
 import com.dhammameditate.DhammaMeditateApp
 import com.dhammameditate.MainActivity
 import com.dhammameditate.R
+import com.dhammameditate.data.local.QueueZone
+import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -34,13 +36,23 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(UnstableApi::class)
 class MeditationPlaybackService : MediaSessionService() {
 
+    private data class ActiveQueueEntry(
+        val trackId: String,
+        val trackTitle: String,
+        val zone: QueueZone,
+        val zoneTrackNumber: Int,
+        val zoneTrackCount: Int
+    )
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private lateinit var trackRepository: TrackRepository
+    private lateinit var sessionRepository: SessionRepository
     private lateinit var stateStore: PlaybackStateStore
     private lateinit var exoPlayer: ExoPlayer
     private lateinit var restrictedPlayer: RestrictedMeditationPlayer
@@ -50,22 +62,35 @@ class MeditationPlaybackService : MediaSessionService() {
     private var tickJob: Job? = null
     private var startSessionJob: Job? = null
     private var pendingStartTrackId: String? = null
+    private var pendingStartSessionId: String? = null
     private var isInternalPlayerChange: Boolean = false
 
-    private var activeTrackId: String? = null
-    private var activeTrackTitle: String? = null
+    private var activeSessionId: String? = null
+    private var activeSessionName: String? = null
+    private var activeQueueEntries: List<ActiveQueueEntry> = emptyList()
+    private var activeTrackIds: Set<String> = emptySet()
+    private var activeIntroCount: Int = 0
+    private var activeMainCount: Int = 0
+    private var currentQueueIndex: Int = 0
     private var activeTargetDurationMs: Long = 0L
 
     private val playerListener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (isInternalPlayerChange) return
             val status = timerEngine.currentStatus()
-            if (!playWhenReady && (status == PlaybackStatus.PLAYING || status == PlaybackStatus.FADING)) {
+            if (
+                !playWhenReady &&
+                (
+                    status == PlaybackStatus.INTRO_PLAYING ||
+                        status == PlaybackStatus.PLAYING ||
+                        status == PlaybackStatus.FADING
+                    )
+            ) {
                 pauseTimerOnly()
             } else if (
                 playWhenReady &&
                 exoPlayer.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE &&
-                status == PlaybackStatus.PAUSED
+                (status == PlaybackStatus.INTRO_PAUSED || status == PlaybackStatus.PAUSED)
             ) {
                 resumeTimerOnly()
             }
@@ -76,22 +101,67 @@ class MeditationPlaybackService : MediaSessionService() {
             val status = timerEngine.currentStatus()
             if (
                 playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE &&
-                (status == PlaybackStatus.PLAYING || status == PlaybackStatus.FADING)
+                (
+                    status == PlaybackStatus.INTRO_PLAYING ||
+                        status == PlaybackStatus.PLAYING ||
+                        status == PlaybackStatus.FADING
+                    )
             ) {
                 pauseTimerOnly()
             } else if (
                 playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE &&
                 exoPlayer.playWhenReady &&
-                status == PlaybackStatus.PAUSED
+                (status == PlaybackStatus.INTRO_PAUSED || status == PlaybackStatus.PAUSED)
             ) {
                 resumeTimerOnly()
+            }
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (isInternalPlayerChange) return
+            if (activeQueueEntries.isEmpty()) return
+            val newIndex = exoPlayer.currentMediaItemIndex
+            if (newIndex !in activeQueueEntries.indices) return
+            currentQueueIndex = newIndex
+
+            val status = timerEngine.currentStatus()
+            if (
+                newIndex >= activeIntroCount &&
+                (status == PlaybackStatus.INTRO_PLAYING || status == PlaybackStatus.INTRO_PAUSED)
+            ) {
+                val transitionedTick = timerEngine.onIntroComplete(SystemClock.elapsedRealtime())
+                if (
+                    isPlaybackBlockedOrSuppressed() &&
+                    transitionedTick.status != PlaybackStatus.PAUSED
+                ) {
+                    pauseTimerOnly()
+                } else {
+                    publishSnapshot(tick = transitionedTick, errorMessage = null)
+                    if (
+                        transitionedTick.status == PlaybackStatus.PLAYING ||
+                        transitionedTick.status == PlaybackStatus.FADING
+                    ) {
+                        startTickLoop()
+                    }
+                }
+            } else {
+                val currentTick = timerEngine.tick(SystemClock.elapsedRealtime())
+                if (currentTick.status == PlaybackStatus.COMPLETED) {
+                    finishSessionAtZero(currentTick)
+                } else {
+                    publishSnapshot(tick = currentTick, errorMessage = null)
+                }
             }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState == Player.STATE_ENDED) {
                 val status = timerEngine.currentStatus()
-                if (status == PlaybackStatus.PLAYING || status == PlaybackStatus.FADING) {
+                if (
+                    status == PlaybackStatus.PLAYING ||
+                    status == PlaybackStatus.FADING ||
+                    status == PlaybackStatus.INTRO_PLAYING
+                ) {
                     completeSessionEarly()
                 }
             }
@@ -101,15 +171,20 @@ class MeditationPlaybackService : MediaSessionService() {
             tickJob?.cancel()
             tickJob = null
             val resetTick = timerEngine.stopAndReset()
+            currentQueueIndex = 0
             withInternalPlayerChange {
                 exoPlayer.volume = 1.0f
                 exoPlayer.pause()
-                exoPlayer.seekTo(0L)
+                if (exoPlayer.mediaItemCount > 0) {
+                    exoPlayer.seekTo(0, 0L)
+                }
             }
+            val currentEntry = activeQueueEntries.getOrNull(currentQueueIndex)
             publishSnapshot(
                 tick = resetTick,
                 errorMessage = "Audio playback failed: file may be missing or unreadable.",
-                errorTrackId = activeTrackId
+                errorTrackId = if (activeSessionId == null) currentEntry?.trackId else null,
+                errorSessionId = activeSessionId
             )
         }
     }
@@ -118,6 +193,7 @@ class MeditationPlaybackService : MediaSessionService() {
         super.onCreate()
         val container = (application as DhammaMeditateApp).container
         trackRepository = container.trackRepository
+        sessionRepository = container.sessionRepository
         stateStore = container.playbackStateStore
 
         val audioAttributes = AudioAttributes.Builder()
@@ -136,7 +212,7 @@ class MeditationPlaybackService : MediaSessionService() {
             player = exoPlayer,
             onPlayRequested = { handleExternalPlay() },
             onPauseRequested = { pauseSession() },
-            onStopRequested = { stopAndReset(clearTrack = false) }
+            onStopRequested = { stopAndReset(clearSelection = false) }
         )
 
         val stopResetButton = CommandButton.Builder(CommandButton.ICON_STOP)
@@ -180,7 +256,7 @@ class MeditationPlaybackService : MediaSessionService() {
                 args: Bundle
             ): ListenableFuture<SessionResult> {
                 if (customCommand.customAction == ACTION_STOP_RESET) {
-                    stopAndReset(clearTrack = false)
+                    stopAndReset(clearSelection = false)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
                 return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
@@ -207,13 +283,21 @@ class MeditationPlaybackService : MediaSessionService() {
                 val trackId = intent.getStringExtra(EXTRA_TRACK_ID)
                 val targetDurationMs = intent.getLongExtra(EXTRA_TARGET_DURATION_MS, 0L)
                 if (!trackId.isNullOrBlank() && targetDurationMs > 0L) {
-                    startSession(trackId, targetDurationMs)
+                    startQuickTrackSession(trackId, targetDurationMs)
+                }
+            }
+
+            ACTION_START_SAVED_SESSION -> {
+                val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
+                if (!sessionId.isNullOrBlank()) {
+                    startSavedSession(sessionId)
                 }
             }
 
             ACTION_PAUSE_SESSION -> pauseSession()
             ACTION_RESUME_SESSION -> resumeSession()
-            ACTION_STOP_RESET -> stopAndReset(clearTrack = false)
+            ACTION_STOP_RESET -> stopAndReset(clearSelection = false)
+
             ACTION_STOP_IF_TRACK -> {
                 val trackId = intent.getStringExtra(EXTRA_TRACK_ID)
                 if (trackId != null) {
@@ -222,8 +306,26 @@ class MeditationPlaybackService : MediaSessionService() {
                         startSessionJob = null
                         pendingStartTrackId = null
                     }
-                    if (trackId == activeTrackId || stateStore.state.value.activeTrackId == trackId) {
-                        stopAndReset(clearTrack = true)
+                    val snapshot = stateStore.state.value
+                    val matchesActive = trackId in activeTrackIds ||
+                        snapshot.activeTrackId == trackId ||
+                        trackId in snapshot.activeTrackIds
+                    if (matchesActive) {
+                        stopAndReset(clearSelection = true)
+                    }
+                }
+            }
+
+            ACTION_STOP_IF_SESSION -> {
+                val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
+                if (sessionId != null) {
+                    if (pendingStartSessionId == sessionId) {
+                        startSessionJob?.cancel()
+                        startSessionJob = null
+                        pendingStartSessionId = null
+                    }
+                    if (activeSessionId == sessionId || stateStore.state.value.activeSessionId == sessionId) {
+                        stopAndReset(clearSelection = true)
                     }
                 }
             }
@@ -233,8 +335,12 @@ class MeditationPlaybackService : MediaSessionService() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         val status = timerEngine.currentStatus()
-        if (status != PlaybackStatus.PLAYING && status != PlaybackStatus.FADING) {
-            stopAndReset(clearTrack = false)
+        if (
+            status != PlaybackStatus.INTRO_PLAYING &&
+            status != PlaybackStatus.PLAYING &&
+            status != PlaybackStatus.FADING
+        ) {
+            stopAndReset(clearSelection = false)
             stopSelf()
         }
     }
@@ -244,9 +350,12 @@ class MeditationPlaybackService : MediaSessionService() {
         startSessionJob?.cancel()
         startSessionJob = null
         pendingStartTrackId = null
+        pendingStartSessionId = null
         tickJob?.cancel()
         tickJob = null
         if (
+            status == PlaybackStatus.INTRO_PLAYING ||
+            status == PlaybackStatus.INTRO_PAUSED ||
             status == PlaybackStatus.PLAYING ||
             status == PlaybackStatus.PAUSED ||
             status == PlaybackStatus.FADING
@@ -264,40 +373,70 @@ class MeditationPlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    private fun startSession(trackId: String, requestedTargetDurationMs: Long) {
+    private fun startQuickTrackSession(trackId: String, requestedTargetDurationMs: Long) {
         startSessionJob?.cancel()
         pendingStartTrackId = trackId
+        pendingStartSessionId = null
         startSessionJob = serviceScope.launch {
             try {
                 val track = trackRepository.getTrack(trackId)
                 if (track == null) {
-                    publishError(trackId, "Selected track could not be found in your library.")
+                    publishError(
+                        message = "Selected track could not be found in your library.",
+                        errorTrackId = trackId,
+                        errorSessionId = null
+                    )
                     return@launch
                 }
 
                 val audioFile = trackRepository.resolveAudioFile(track)
-                if (!audioFile.exists() || !audioFile.canRead()) {
-                    publishError(trackId, "Local audio file is missing or unreadable. Try re-importing it.")
+                val isReadable = withContext(Dispatchers.IO) {
+                    audioFile.exists() && audioFile.canRead()
+                }
+                if (!isReadable) {
+                    publishError(
+                        message = "Local audio file is missing or unreadable. Try re-importing it.",
+                        errorTrackId = trackId,
+                        errorSessionId = null
+                    )
                     return@launch
                 }
 
                 val capped = TimerValidation.capDurationMs(requestedTargetDurationMs, track.durationMs)
                 if (capped.durationMs <= 0L) {
-                    publishError(trackId, "Selected timer duration is invalid.")
+                    publishError(
+                        message = "Selected timer duration is invalid.",
+                        errorTrackId = trackId,
+                        errorSessionId = null
+                    )
                     return@launch
                 }
 
                 tickJob?.cancel()
                 tickJob = null
 
-                activeTrackId = track.id
-                activeTrackTitle = track.title
+                activeSessionId = null
+                activeSessionName = null
+                activeQueueEntries = listOf(
+                    ActiveQueueEntry(
+                        trackId = track.id,
+                        trackTitle = track.title,
+                        zone = QueueZone.MAIN,
+                        zoneTrackNumber = 1,
+                        zoneTrackCount = 1
+                    )
+                )
+                activeTrackIds = setOf(track.id)
+                activeIntroCount = 0
+                activeMainCount = 1
+                currentQueueIndex = 0
                 activeTargetDurationMs = capped.durationMs
 
+                val subtitle = getString(R.string.notification_subtitle)
                 val metadata = MediaMetadata.Builder()
                     .setTitle(track.title)
-                    .setSubtitle(getString(R.string.notification_subtitle))
-                    .setArtist(getString(R.string.notification_subtitle))
+                    .setSubtitle(subtitle)
+                    .setArtist(subtitle)
                     .build()
 
                 val mediaItem = MediaItem.Builder()
@@ -308,15 +447,15 @@ class MeditationPlaybackService : MediaSessionService() {
 
                 val startTick = timerEngine.start(
                     targetDurationMs = capped.durationMs,
+                    hasIntro = false,
                     nowMs = SystemClock.elapsedRealtime()
                 )
 
-                // Start-Fresh invariant: always 00:00 and full 1.0f volume
+                // Start-Fresh invariant: always index 0, 00:00, and full 1.0f volume
                 withInternalPlayerChange {
-                    exoPlayer.setMediaItem(mediaItem, /* startPositionMs = */ 0L)
+                    exoPlayer.setMediaItems(listOf(mediaItem), /* startIndex = */ 0, /* startPositionMs = */ 0L)
                     exoPlayer.volume = 1.0f
                     exoPlayer.prepare()
-                    exoPlayer.seekTo(0L)
                     exoPlayer.play()
                 }
 
@@ -334,23 +473,205 @@ class MeditationPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun handleExternalPlay() {
-        when (timerEngine.currentStatus()) {
-            PlaybackStatus.PAUSED -> resumeSession()
-            PlaybackStatus.IDLE, PlaybackStatus.COMPLETED -> {
-                val trackId = activeTrackId
-                val durationMs = activeTargetDurationMs
-                if (trackId != null && durationMs > 0L) {
-                    startSession(trackId, durationMs)
+    private fun startSavedSession(sessionId: String) {
+        startSessionJob?.cancel()
+        pendingStartTrackId = null
+        pendingStartSessionId = sessionId
+        startSessionJob = serviceScope.launch {
+            try {
+                val session = sessionRepository.getSession(sessionId)
+                if (session == null) {
+                    publishError(
+                        message = "Selected session could not be found.",
+                        errorTrackId = null,
+                        errorSessionId = sessionId
+                    )
+                    return@launch
+                }
+
+                if (session.mainItems.isEmpty()) {
+                    publishError(
+                        message = "This session needs at least one Main Queue track before playing.",
+                        errorTrackId = null,
+                        errorSessionId = sessionId
+                    )
+                    return@launch
+                }
+
+                val capped = TimerValidation.capDurationMs(
+                    requestedMs = session.targetDurationMs,
+                    maxDurationMs = session.mainTotalDurationMs,
+                    scopeLabel = TimerValidation.SCOPE_MAIN_QUEUE
+                )
+                if (capped.durationMs <= 0L) {
+                    publishError(
+                        message = "Session timer duration is invalid. Edit the session to set a timer.",
+                        errorTrackId = null,
+                        errorSessionId = sessionId
+                    )
+                    return@launch
+                }
+
+                val introCount = session.introItems.size
+                val mainCount = session.mainItems.size
+
+                val queueEntries = ArrayList<ActiveQueueEntry>(introCount + mainCount)
+                val mediaItems = ArrayList<MediaItem>(introCount + mainCount)
+
+                val (resolvedIntroFiles, resolvedMainFiles) = withContext(Dispatchers.IO) {
+                    val intro = session.introItems.map { item ->
+                        val file = trackRepository.resolveAudioFile(item.track)
+                        Triple(item, file, file.exists() && file.canRead())
+                    }
+                    val main = session.mainItems.map { item ->
+                        val file = trackRepository.resolveAudioFile(item.track)
+                        Triple(item, file, file.exists() && file.canRead())
+                    }
+                    intro to main
+                }
+
+                for ((index, resolved) in resolvedIntroFiles.withIndex()) {
+                    val (item, file, isReadable) = resolved
+                    if (!isReadable) {
+                        publishError(
+                            message = "Missing or unreadable Intro track: \"${item.track.title}\". Re-import it or edit the session.",
+                            errorTrackId = null,
+                            errorSessionId = sessionId
+                        )
+                        return@launch
+                    }
+                    val trackNum = index + 1
+                    val subtitle = "${session.name} · Intro ($trackNum/$introCount)"
+                    val metadata = MediaMetadata.Builder()
+                        .setTitle(item.track.title)
+                        .setSubtitle(subtitle)
+                        .setArtist(subtitle)
+                        .build()
+                    mediaItems.add(
+                        MediaItem.Builder()
+                            .setMediaId(item.entryId)
+                            .setUri(Uri.fromFile(file))
+                            .setMediaMetadata(metadata)
+                            .build()
+                    )
+                    queueEntries.add(
+                        ActiveQueueEntry(
+                            trackId = item.track.id,
+                            trackTitle = item.track.title,
+                            zone = QueueZone.INTRO,
+                            zoneTrackNumber = trackNum,
+                            zoneTrackCount = introCount
+                        )
+                    )
+                }
+
+                for ((index, resolved) in resolvedMainFiles.withIndex()) {
+                    val (item, file, isReadable) = resolved
+                    if (!isReadable) {
+                        publishError(
+                            message = "Missing or unreadable Main track: \"${item.track.title}\". Re-import it or edit the session.",
+                            errorTrackId = null,
+                            errorSessionId = sessionId
+                        )
+                        return@launch
+                    }
+                    val trackNum = index + 1
+                    val subtitle = "${session.name} · Main ($trackNum/$mainCount)"
+                    val metadata = MediaMetadata.Builder()
+                        .setTitle(item.track.title)
+                        .setSubtitle(subtitle)
+                        .setArtist(subtitle)
+                        .build()
+                    mediaItems.add(
+                        MediaItem.Builder()
+                            .setMediaId(item.entryId)
+                            .setUri(Uri.fromFile(file))
+                            .setMediaMetadata(metadata)
+                            .build()
+                    )
+                    queueEntries.add(
+                        ActiveQueueEntry(
+                            trackId = item.track.id,
+                            trackTitle = item.track.title,
+                            zone = QueueZone.MAIN,
+                            zoneTrackNumber = trackNum,
+                            zoneTrackCount = mainCount
+                        )
+                    )
+                }
+
+                tickJob?.cancel()
+                tickJob = null
+
+                activeSessionId = session.id
+                activeSessionName = session.name
+                activeQueueEntries = queueEntries
+                activeTrackIds = queueEntries.map { it.trackId }.toSet()
+                activeIntroCount = introCount
+                activeMainCount = mainCount
+                currentQueueIndex = 0
+                activeTargetDurationMs = capped.durationMs
+
+                val hasIntro = introCount > 0
+                val startTick = timerEngine.start(
+                    targetDurationMs = capped.durationMs,
+                    hasIntro = hasIntro,
+                    nowMs = SystemClock.elapsedRealtime()
+                )
+
+                // Start-Fresh invariant: always index 0, 00:00, and full 1.0f volume
+                withInternalPlayerChange {
+                    exoPlayer.setMediaItems(mediaItems, /* startIndex = */ 0, /* startPositionMs = */ 0L)
+                    exoPlayer.volume = 1.0f
+                    exoPlayer.prepare()
+                    exoPlayer.play()
+                }
+
+                if (isPlaybackBlockedOrSuppressed()) {
+                    pauseTimerOnly()
+                } else {
+                    publishSnapshot(tick = startTick, errorMessage = null)
+                    if (!hasIntro) {
+                        startTickLoop()
+                    }
+                }
+            } finally {
+                if (pendingStartSessionId == sessionId) {
+                    pendingStartSessionId = null
                 }
             }
-            PlaybackStatus.PLAYING, PlaybackStatus.FADING -> Unit
+        }
+    }
+
+    private fun handleExternalPlay() {
+        when (timerEngine.currentStatus()) {
+            PlaybackStatus.INTRO_PAUSED, PlaybackStatus.PAUSED -> resumeSession()
+            PlaybackStatus.IDLE, PlaybackStatus.COMPLETED -> {
+                val sessionId = activeSessionId
+                if (sessionId != null) {
+                    startSavedSession(sessionId)
+                } else {
+                    val quickTrackId = activeQueueEntries.firstOrNull()?.trackId
+                    val durationMs = activeTargetDurationMs
+                    if (quickTrackId != null && durationMs > 0L) {
+                        startQuickTrackSession(quickTrackId, durationMs)
+                    }
+                }
+            }
+
+            PlaybackStatus.INTRO_PLAYING, PlaybackStatus.PLAYING, PlaybackStatus.FADING -> Unit
         }
     }
 
     private fun pauseSession() {
         val status = timerEngine.currentStatus()
-        if (status != PlaybackStatus.PLAYING && status != PlaybackStatus.FADING) return
+        if (
+            status != PlaybackStatus.INTRO_PLAYING &&
+            status != PlaybackStatus.PLAYING &&
+            status != PlaybackStatus.FADING
+        ) {
+            return
+        }
         tickJob?.cancel()
         tickJob = null
         val pausedTick = timerEngine.pause(SystemClock.elapsedRealtime())
@@ -368,7 +689,8 @@ class MeditationPlaybackService : MediaSessionService() {
     }
 
     private fun resumeSession() {
-        if (timerEngine.currentStatus() != PlaybackStatus.PAUSED) return
+        val status = timerEngine.currentStatus()
+        if (status != PlaybackStatus.INTRO_PAUSED && status != PlaybackStatus.PAUSED) return
         val resumedTick = timerEngine.resume(SystemClock.elapsedRealtime())
         if (resumedTick.status == PlaybackStatus.COMPLETED) {
             finishSessionAtZero(resumedTick)
@@ -382,12 +704,18 @@ class MeditationPlaybackService : MediaSessionService() {
             pauseTimerOnly()
         } else {
             publishSnapshot(tick = resumedTick, errorMessage = null)
-            startTickLoop()
+            if (
+                resumedTick.status == PlaybackStatus.PLAYING ||
+                resumedTick.status == PlaybackStatus.FADING
+            ) {
+                startTickLoop()
+            }
         }
     }
 
     private fun resumeTimerOnly() {
-        if (timerEngine.currentStatus() != PlaybackStatus.PAUSED) return
+        val status = timerEngine.currentStatus()
+        if (status != PlaybackStatus.INTRO_PAUSED && status != PlaybackStatus.PAUSED) return
         val resumedTick = timerEngine.resume(SystemClock.elapsedRealtime())
         if (resumedTick.status == PlaybackStatus.COMPLETED) {
             finishSessionAtZero(resumedTick)
@@ -395,28 +723,35 @@ class MeditationPlaybackService : MediaSessionService() {
         }
         exoPlayer.volume = resumedTick.volume
         publishSnapshot(tick = resumedTick, errorMessage = null)
-        startTickLoop()
+        if (
+            resumedTick.status == PlaybackStatus.PLAYING ||
+            resumedTick.status == PlaybackStatus.FADING
+        ) {
+            startTickLoop()
+        }
     }
 
-    private fun stopAndReset(clearTrack: Boolean) {
+    private fun stopAndReset(clearSelection: Boolean) {
         startSessionJob?.cancel()
         startSessionJob = null
         pendingStartTrackId = null
+        pendingStartSessionId = null
         tickJob?.cancel()
         tickJob = null
         val resetTick = timerEngine.stopAndReset()
+        currentQueueIndex = 0
         withInternalPlayerChange {
             exoPlayer.pause()
-            exoPlayer.seekTo(0L)
+            if (exoPlayer.mediaItemCount > 0) {
+                exoPlayer.seekTo(0, 0L)
+            }
             exoPlayer.volume = 1.0f
-            if (clearTrack) {
+            if (clearSelection) {
                 exoPlayer.clearMediaItems()
             }
         }
-        if (clearTrack) {
-            activeTrackId = null
-            activeTrackTitle = null
-            activeTargetDurationMs = 0L
+        if (clearSelection) {
+            clearActiveMetadata()
             stateStore.set(PlaybackSnapshot())
         } else {
             publishSnapshot(tick = resetTick, errorMessage = null)
@@ -433,10 +768,13 @@ class MeditationPlaybackService : MediaSessionService() {
     private fun finishSessionAtZero(completedTick: TimerTick) {
         tickJob?.cancel()
         tickJob = null
+        currentQueueIndex = 0
         withInternalPlayerChange {
             exoPlayer.volume = 0.0f
             exoPlayer.pause()
-            exoPlayer.seekTo(0L)
+            if (exoPlayer.mediaItemCount > 0) {
+                exoPlayer.seekTo(0, 0L)
+            }
         }
         publishSnapshot(tick = completedTick, errorMessage = null)
     }
@@ -474,7 +812,10 @@ class MeditationPlaybackService : MediaSessionService() {
                         break
                     }
 
-                    PlaybackStatus.PAUSED, PlaybackStatus.IDLE -> {
+                    PlaybackStatus.INTRO_PLAYING,
+                    PlaybackStatus.INTRO_PAUSED,
+                    PlaybackStatus.PAUSED,
+                    PlaybackStatus.IDLE -> {
                         publishSnapshot(tick = tick, errorMessage = null)
                         break
                     }
@@ -486,43 +827,72 @@ class MeditationPlaybackService : MediaSessionService() {
     private fun publishSnapshot(
         tick: TimerTick,
         errorMessage: String?,
-        errorTrackId: String? = null
+        errorTrackId: String? = null,
+        errorSessionId: String? = null
     ) {
+        val currentEntry = activeQueueEntries.getOrNull(currentQueueIndex)
+            ?: activeQueueEntries.firstOrNull()
         stateStore.set(
             PlaybackSnapshot(
                 status = tick.status,
-                activeTrackId = activeTrackId,
-                activeTrackTitle = activeTrackTitle,
+                activeSessionId = activeSessionId,
+                activeSessionName = activeSessionName,
+                activeTrackId = currentEntry?.trackId,
+                activeTrackTitle = currentEntry?.trackTitle,
+                activeTrackIds = activeTrackIds,
+                currentZone = currentEntry?.zone,
+                currentQueueIndex = currentQueueIndex,
+                zoneTrackNumber = currentEntry?.zoneTrackNumber ?: 0,
+                zoneTrackCount = currentEntry?.zoneTrackCount ?: 0,
+                introCount = activeIntroCount,
+                mainCount = activeMainCount,
                 targetDurationMs = tick.targetDurationMs,
                 remainingMs = tick.remainingMs,
                 elapsedMs = tick.elapsedMs,
                 volume = tick.volume,
                 errorMessage = errorMessage,
-                errorTrackId = errorTrackId
+                errorTrackId = errorTrackId,
+                errorSessionId = errorSessionId
             )
         )
     }
 
-    private fun publishError(failedTrackId: String, message: String) {
+    private fun publishError(
+        message: String,
+        errorTrackId: String?,
+        errorSessionId: String?
+    ) {
         tickJob?.cancel()
         tickJob = null
         timerEngine.stopAndReset()
         withInternalPlayerChange {
             exoPlayer.volume = 1.0f
             exoPlayer.pause()
-            exoPlayer.seekTo(0L)
+            if (exoPlayer.mediaItemCount > 0) {
+                exoPlayer.seekTo(0, 0L)
+            }
             exoPlayer.clearMediaItems()
         }
-        activeTrackId = null
-        activeTrackTitle = null
-        activeTargetDurationMs = 0L
+        clearActiveMetadata()
         stateStore.set(
             PlaybackSnapshot(
                 status = PlaybackStatus.IDLE,
                 errorMessage = message,
-                errorTrackId = failedTrackId
+                errorTrackId = errorTrackId,
+                errorSessionId = errorSessionId
             )
         )
+    }
+
+    private fun clearActiveMetadata() {
+        activeSessionId = null
+        activeSessionName = null
+        activeQueueEntries = emptyList()
+        activeTrackIds = emptySet()
+        activeIntroCount = 0
+        activeMainCount = 0
+        currentQueueIndex = 0
+        activeTargetDurationMs = 0L
     }
 
     private fun isPlaybackBlockedOrSuppressed(): Boolean {
@@ -541,12 +911,15 @@ class MeditationPlaybackService : MediaSessionService() {
 
     companion object {
         const val ACTION_START_SESSION = "com.dhammameditate.action.START_SESSION"
+        const val ACTION_START_SAVED_SESSION = "com.dhammameditate.action.START_SAVED_SESSION"
         const val ACTION_PAUSE_SESSION = "com.dhammameditate.action.PAUSE_SESSION"
         const val ACTION_RESUME_SESSION = "com.dhammameditate.action.RESUME_SESSION"
         const val ACTION_STOP_RESET = "ACTION_STOP_RESET"
         const val ACTION_STOP_IF_TRACK = "com.dhammameditate.action.STOP_IF_TRACK"
+        const val ACTION_STOP_IF_SESSION = "com.dhammameditate.action.STOP_IF_SESSION"
 
         const val EXTRA_TRACK_ID = "extra_track_id"
+        const val EXTRA_SESSION_ID = "extra_session_id"
         const val EXTRA_TARGET_DURATION_MS = "extra_target_duration_ms"
 
         private const val NORMAL_TICK_MS = 250L

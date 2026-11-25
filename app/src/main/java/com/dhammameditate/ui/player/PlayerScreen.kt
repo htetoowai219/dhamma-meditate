@@ -574,7 +574,7 @@ private fun RestrictedTransportControls(
                 }
             }
 
-            PlaybackStatus.PLAYING, PlaybackStatus.FADING -> {
+            PlaybackStatus.INTRO_PLAYING, PlaybackStatus.PLAYING, PlaybackStatus.FADING -> {
                 Button(
                     onClick = onPause,
                     shape = RoundedCornerShape(16.dp),
@@ -610,7 +610,7 @@ private fun RestrictedTransportControls(
                 }
             }
 
-            PlaybackStatus.PAUSED -> {
+            PlaybackStatus.INTRO_PAUSED, PlaybackStatus.PAUSED -> {
                 Button(
                     onClick = onResume,
                     shape = RoundedCornerShape(16.dp),
@@ -651,6 +651,8 @@ private fun RestrictedTransportControls(
 
 private fun statusLabel(status: PlaybackStatus): String = when (status) {
     PlaybackStatus.IDLE -> "Ready"
+    PlaybackStatus.INTRO_PLAYING -> "Intro playing"
+    PlaybackStatus.INTRO_PAUSED -> "Intro paused"
     PlaybackStatus.PLAYING -> "Playing"
     PlaybackStatus.PAUSED -> "Paused"
     PlaybackStatus.FADING -> "Fading out..."
