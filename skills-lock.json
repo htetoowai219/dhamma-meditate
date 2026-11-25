@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "skills": {
+    "architect": {
+      "source": "htetoowai219/skills",
+      "commit": "28f937b29636a307f688a785f86179d78f56fed0",
+      "sourceType": "github",
+      "skillPath": "skills/architect/SKILL.md",
+      "computedHash": "06fe10e7c7e427eeda9c6f0f1b436dfd3861ce06cbdfb55001808dc312af4bea"
+    },
+    "check": {
+      "source": "htetoowai219/skills",
+      "commit": "28f937b29636a307f688a785f86179d78f56fed0",
+      "sourceType": "github",
+      "skillPath": "skills/check/SKILL.md",
+      "computedHash": "78e50d0dad7557f86701e8087191fb31c32cb45e32fbf862e7f6430e5e3d3609"
+    },
+    "develop": {
+      "source": "htetoowai219/skills",
+      "commit": "28f937b29636a307f688a785f86179d78f56fed0",
+      "sourceType": "github",
+      "skillPath": "skills/develop/SKILL.md",
+      "computedHash": "6d4ade1dd5eb3fe5f216457491cf33afbe1357fe86d5814f359cfe367753d861"
+    },
+    "idea-dump": {
+      "source": "htetoowai219/skills",
+      "commit": "28f937b29636a307f688a785f86179d78f56fed0",
+      "sourceType": "github",
+      "skillPath": "skills/idea-dump/SKILL.md",
+      "computedHash": "90ba931bf11d07e2f2a29165b515d0c6cace487b6f2125c96177b24eb9f32485"
+    },
+    "readme-writer": {
+      "source": "htetoowai219/skills",
+      "commit": "28f937b29636a307f688a785f86179d78f56fed0",
+      "sourceType": "github",
+      "skillPath": "skills/readme-writer/SKILL.md",
+      "computedHash": "4403fb665584cf7b1fcb7d60b653344e93ecc0f69c22d1b2ca495600a7e3d724"
+    },
+    "scope": {
+      "source": "htetoowai219/skills",
+      "commit": "28f937b29636a307f688a785f86179d78f56fed0",
+      "sourceType": "github",
+      "skillPath": "skills/scope/SKILL.md",
+      "computedHash": "ed5217bac2e26df7fee7ff789d740034f70d14b29501914e6536cc3b5054e1d3"
+    }
+  }
+}

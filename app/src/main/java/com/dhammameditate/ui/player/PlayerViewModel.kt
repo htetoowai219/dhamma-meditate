@@ -1,0 +1,252 @@
+package com.dhammameditate.ui.player
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.dhammameditate.data.local.TrackEntity
+import com.dhammameditate.data.repository.TrackRepository
+import com.dhammameditate.playback.PlaybackClient
+import com.dhammameditate.playback.PlaybackSnapshot
+import com.dhammameditate.playback.PlaybackStatus
+import com.dhammameditate.playback.TimerValidation
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+data class PlayerUiState(
+    val isLoading: Boolean = true,
+    val track: TrackEntity? = null,
+    val status: PlaybackStatus = PlaybackStatus.IDLE,
+    val selectedDurationMs: Long = 0L,
+    val isFullSelected: Boolean = false,
+    val customMinutesInput: String = "",
+    val capNotice: String? = null,
+    val displayedRemainingMs: Long = 0L,
+    val progressFraction: Float = 0f,
+    val errorMessage: String? = null
+) {
+    val isTimerLocked: Boolean
+        get() = status == PlaybackStatus.PLAYING ||
+            status == PlaybackStatus.PAUSED ||
+            status == PlaybackStatus.FADING
+}
+
+private data class LocalSelectionState(
+    val isLoading: Boolean = true,
+    val track: TrackEntity? = null,
+    val selectedDurationMs: Long = 0L,
+    val isFullSelected: Boolean = false,
+    val customMinutesInput: String = "",
+    val capNotice: String? = null
+)
+
+class PlayerViewModel(
+    private val trackId: String,
+    private val trackRepository: TrackRepository,
+    private val playbackClient: PlaybackClient
+) : ViewModel() {
+
+    private val localState = MutableStateFlow(LocalSelectionState())
+
+    val uiState: StateFlow<PlayerUiState> = combine(
+        localState,
+        playbackClient.state
+    ) { local, playback ->
+        buildUiState(local, playback)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000L),
+        initialValue = PlayerUiState()
+    )
+
+    init {
+        viewModelScope.launch {
+            val track = trackRepository.getTrack(trackId)
+            if (track == null) {
+                localState.value = LocalSelectionState(isLoading = false, track = null)
+                return@launch
+            }
+            val activePlayback = playbackClient.state.value
+            val initialDuration = if (
+                activePlayback.activeTrackId == trackId &&
+                activePlayback.targetDurationMs > 0L
+            ) {
+                activePlayback.targetDurationMs.coerceAtMost(track.durationMs)
+            } else {
+                TimerValidation.defaultDurationMs(track.durationMs)
+            }
+            val matchesPreset = TimerValidation.PRESET_MINUTES.any {
+                it.toLong() * 60_000L == initialDuration
+            }
+            localState.value = LocalSelectionState(
+                isLoading = false,
+                track = track,
+                selectedDurationMs = initialDuration,
+                isFullSelected = !matchesPreset && initialDuration == track.durationMs,
+                customMinutesInput = "",
+                capNotice = null
+            )
+        }
+    }
+
+    private fun buildUiState(
+        local: LocalSelectionState,
+        playback: PlaybackSnapshot
+    ): PlayerUiState {
+        val isThisTrackLoaded = playback.activeTrackId == trackId
+        val status = if (isThisTrackLoaded) playback.status else PlaybackStatus.IDLE
+
+        val displayedRemainingMs: Long
+        val progressFraction: Float
+        if (isThisTrackLoaded && status != PlaybackStatus.IDLE) {
+            displayedRemainingMs = playback.remainingMs
+            progressFraction = if (playback.targetDurationMs > 0L) {
+                (playback.elapsedMs.toFloat() / playback.targetDurationMs.toFloat()).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+        } else {
+            displayedRemainingMs = local.selectedDurationMs
+            progressFraction = 0f
+        }
+
+        val errorMessage = if (isThisTrackLoaded || playback.activeTrackId == null) {
+            playback.errorMessage
+        } else {
+            null
+        }
+
+        return PlayerUiState(
+            isLoading = local.isLoading,
+            track = local.track,
+            status = status,
+            selectedDurationMs = local.selectedDurationMs,
+            isFullSelected = local.isFullSelected,
+            customMinutesInput = local.customMinutesInput,
+            capNotice = local.capNotice,
+            displayedRemainingMs = displayedRemainingMs,
+            progressFraction = progressFraction,
+            errorMessage = errorMessage
+        )
+    }
+
+    fun selectPresetMinutes(minutes: Int) {
+        val state = uiState.value
+        val track = state.track ?: return
+        if (state.isTimerLocked) return
+        if (!TimerValidation.isPresetEnabled(minutes, track.durationMs)) return
+
+        resetIfCompleted(state.status)
+        localState.value = localState.value.copy(
+            selectedDurationMs = minutes.toLong() * 60_000L,
+            isFullSelected = false,
+            customMinutesInput = "",
+            capNotice = null
+        )
+    }
+
+    fun selectFullTrack() {
+        val state = uiState.value
+        val track = state.track ?: return
+        if (state.isTimerLocked) return
+
+        resetIfCompleted(state.status)
+        localState.value = localState.value.copy(
+            selectedDurationMs = track.durationMs,
+            isFullSelected = true,
+            customMinutesInput = "",
+            capNotice = null
+        )
+    }
+
+    fun onCustomMinutesChanged(rawInput: String) {
+        val state = uiState.value
+        val track = state.track ?: return
+        if (state.isTimerLocked) return
+
+        resetIfCompleted(state.status)
+        val digitsOnly = rawInput.filter { it.isDigit() }.take(4)
+        if (digitsOnly.isEmpty()) {
+            localState.value = localState.value.copy(
+                customMinutesInput = "",
+                capNotice = null
+            )
+            return
+        }
+
+        val parsed = digitsOnly.toIntOrNull() ?: return
+        if (parsed < 1) {
+            localState.value = localState.value.copy(
+                customMinutesInput = digitsOnly,
+                capNotice = "Enter at least 1 minute"
+            )
+            return
+        }
+
+        val capped = TimerValidation.validateCustomMinutes(parsed, track.durationMs)
+        localState.value = localState.value.copy(
+            selectedDurationMs = capped.durationMs,
+            isFullSelected = capped.wasCapped,
+            customMinutesInput = digitsOnly,
+            capNotice = capped.noticeMessage
+        )
+    }
+
+    private fun resetIfCompleted(status: PlaybackStatus) {
+        if (status == PlaybackStatus.COMPLETED) {
+            playbackClient.stopAndReset()
+        }
+    }
+
+    fun startSession() {
+        val state = uiState.value
+        val track = state.track ?: return
+        val capped = TimerValidation.capDurationMs(state.selectedDurationMs, track.durationMs)
+        if (capped.durationMs <= 0L) return
+
+        localState.value = localState.value.copy(
+            selectedDurationMs = capped.durationMs,
+            capNotice = capped.noticeMessage
+        )
+        playbackClient.startSession(
+            trackId = track.id,
+            targetDurationMs = capped.durationMs
+        )
+    }
+
+    fun pauseSession() {
+        playbackClient.pause()
+    }
+
+    fun resumeSession() {
+        playbackClient.resume()
+    }
+
+    fun stopAndReset() {
+        playbackClient.stopAndReset()
+    }
+
+    fun dismissError() {
+        playbackClient.clearError()
+    }
+
+    companion object {
+        fun factory(
+            trackId: String,
+            trackRepository: TrackRepository,
+            playbackClient: PlaybackClient
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return PlayerViewModel(
+                    trackId = trackId,
+                    trackRepository = trackRepository,
+                    playbackClient = playbackClient
+                ) as T
+            }
+        }
+    }
+}
