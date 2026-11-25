@@ -73,7 +73,6 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.guava)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

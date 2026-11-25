@@ -31,6 +31,11 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         )
 
+        if (intent?.getBooleanExtra(EXTRA_OPEN_ACTIVE_SESSION, false) == true) {
+            intent.removeExtra(EXTRA_OPEN_ACTIVE_SESSION)
+            openActiveSessionTrigger.value = System.nanoTime()
+        }
+
         val container = (application as DhammaMeditateApp).container
 
         setContent {
@@ -42,6 +47,7 @@ class MainActivity : ComponentActivity() {
                             ?.activeTrackId
                     )
                 }
+                var askedNotificationPermission by rememberSaveable { mutableStateOf(false) }
 
                 LaunchedEffect(Unit) {
                     openActiveSessionTrigger.collect { trigger ->
@@ -80,6 +86,8 @@ class MainActivity : ComponentActivity() {
                     )
                     PlayerScreen(
                         viewModel = playerViewModel,
+                        askedNotificationPermission = askedNotificationPermission,
+                        onNotificationPermissionAsked = { askedNotificationPermission = true },
                         onBack = { selectedTrackId = null }
                     )
                 }
@@ -91,6 +99,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_ACTIVE_SESSION, false)) {
+            intent.removeExtra(EXTRA_OPEN_ACTIVE_SESSION)
             openActiveSessionTrigger.value = System.nanoTime()
         }
     }

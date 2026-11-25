@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -45,9 +47,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -80,13 +79,14 @@ import com.dhammameditate.ui.theme.WhiteMuted
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    askedNotificationPermission: Boolean,
+    onNotificationPermissionAsked: () -> Unit,
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var askedNotificationPermission by rememberSaveable { mutableStateOf(false) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -104,7 +104,7 @@ fun PlayerScreen(
             ) != PackageManager.PERMISSION_GRANTED
 
         if (needsPrompt) {
-            askedNotificationPermission = true
+            onNotificationPermissionAsked()
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             viewModel.startSession()
@@ -116,10 +116,11 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(MonasticMaroon)
             .windowInsetsPadding(WindowInsets.statusBars)
-            .windowInsetsPadding(WindowInsets.navigationBars)
+            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
     ) {
         PlayerTopBar(onBack = onBack)
 
+        val track = uiState.track
         when {
             uiState.isLoading -> {
                 Box(
@@ -132,7 +133,7 @@ fun PlayerScreen(
                 }
             }
 
-            uiState.track == null -> {
+            track == null -> {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -180,7 +181,6 @@ fun PlayerScreen(
             }
 
             else -> {
-                val track = uiState.track!!
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -234,9 +234,9 @@ fun PlayerScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    if (uiState.errorMessage != null) {
+                    uiState.errorMessage?.let { message ->
                         PlayerErrorBanner(
-                            message = uiState.errorMessage!!,
+                            message = message,
                             onDismiss = viewModel::dismissError,
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
@@ -260,6 +260,7 @@ fun PlayerScreen(
                 // Bottom restricted transport controls (Start / Pause-Continue / Stop & Reset only)
                 RestrictedTransportControls(
                     status = uiState.status,
+                    canStart = uiState.canStartSession,
                     onStart = requestStartSession,
                     onPause = viewModel::pauseSession,
                     onResume = viewModel::resumeSession,
@@ -538,6 +539,7 @@ private fun DurationPresetChip(
 @Composable
 private fun RestrictedTransportControls(
     status: PlaybackStatus,
+    canStart: Boolean,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -552,10 +554,13 @@ private fun RestrictedTransportControls(
             PlaybackStatus.IDLE, PlaybackStatus.COMPLETED -> {
                 Button(
                     onClick = onStart,
+                    enabled = canStart,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Saffron,
-                        contentColor = PureWhite
+                        contentColor = PureWhite,
+                        disabledContainerColor = Saffron.copy(alpha = 0.45f),
+                        disabledContentColor = PureWhite.copy(alpha = 0.7f)
                     ),
                     elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp),
                     modifier = Modifier

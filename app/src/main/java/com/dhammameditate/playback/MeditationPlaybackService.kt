@@ -48,6 +48,8 @@ class MeditationPlaybackService : MediaSessionService() {
 
     private val timerEngine = MeditationTimerEngine(clockMs = { SystemClock.elapsedRealtime() })
     private var tickJob: Job? = null
+    private var startSessionJob: Job? = null
+    private var pendingStartTrackId: String? = null
     private var isInternalPlayerChange: Boolean = false
 
     private var activeTrackId: String? = null
@@ -60,7 +62,28 @@ class MeditationPlaybackService : MediaSessionService() {
             val status = timerEngine.currentStatus()
             if (!playWhenReady && (status == PlaybackStatus.PLAYING || status == PlaybackStatus.FADING)) {
                 pauseTimerOnly()
-            } else if (playWhenReady && status == PlaybackStatus.PAUSED) {
+            } else if (
+                playWhenReady &&
+                exoPlayer.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE &&
+                status == PlaybackStatus.PAUSED
+            ) {
+                resumeTimerOnly()
+            }
+        }
+
+        override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+            if (isInternalPlayerChange) return
+            val status = timerEngine.currentStatus()
+            if (
+                playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE &&
+                (status == PlaybackStatus.PLAYING || status == PlaybackStatus.FADING)
+            ) {
+                pauseTimerOnly()
+            } else if (
+                playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE &&
+                exoPlayer.playWhenReady &&
+                status == PlaybackStatus.PAUSED
+            ) {
                 resumeTimerOnly()
             }
         }
@@ -85,7 +108,8 @@ class MeditationPlaybackService : MediaSessionService() {
             }
             publishSnapshot(
                 tick = resetTick,
-                errorMessage = "Audio playback failed: file may be missing or unreadable."
+                errorMessage = "Audio playback failed: file may be missing or unreadable.",
+                errorTrackId = activeTrackId
             )
         }
     }
@@ -192,8 +216,15 @@ class MeditationPlaybackService : MediaSessionService() {
             ACTION_STOP_RESET -> stopAndReset(clearTrack = false)
             ACTION_STOP_IF_TRACK -> {
                 val trackId = intent.getStringExtra(EXTRA_TRACK_ID)
-                if (trackId != null && trackId == activeTrackId) {
-                    stopAndReset(clearTrack = true)
+                if (trackId != null) {
+                    if (pendingStartTrackId == trackId) {
+                        startSessionJob?.cancel()
+                        startSessionJob = null
+                        pendingStartTrackId = null
+                    }
+                    if (trackId == activeTrackId || stateStore.state.value.activeTrackId == trackId) {
+                        stopAndReset(clearTrack = true)
+                    }
                 }
             }
         }
@@ -209,7 +240,20 @@ class MeditationPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        val status = timerEngine.currentStatus()
+        startSessionJob?.cancel()
+        startSessionJob = null
+        pendingStartTrackId = null
         tickJob?.cancel()
+        tickJob = null
+        if (
+            status == PlaybackStatus.PLAYING ||
+            status == PlaybackStatus.PAUSED ||
+            status == PlaybackStatus.FADING
+        ) {
+            timerEngine.stopAndReset()
+            stateStore.set(PlaybackSnapshot())
+        }
         serviceScope.cancel()
         mediaSession?.run {
             release()
@@ -221,61 +265,72 @@ class MeditationPlaybackService : MediaSessionService() {
     }
 
     private fun startSession(trackId: String, requestedTargetDurationMs: Long) {
-        serviceScope.launch {
-            val track = trackRepository.getTrack(trackId)
-            if (track == null) {
-                publishError("Selected track could not be found in your library.")
-                return@launch
+        startSessionJob?.cancel()
+        pendingStartTrackId = trackId
+        startSessionJob = serviceScope.launch {
+            try {
+                val track = trackRepository.getTrack(trackId)
+                if (track == null) {
+                    publishError(trackId, "Selected track could not be found in your library.")
+                    return@launch
+                }
+
+                val audioFile = trackRepository.resolveAudioFile(track)
+                if (!audioFile.exists() || !audioFile.canRead()) {
+                    publishError(trackId, "Local audio file is missing or unreadable. Try re-importing it.")
+                    return@launch
+                }
+
+                val capped = TimerValidation.capDurationMs(requestedTargetDurationMs, track.durationMs)
+                if (capped.durationMs <= 0L) {
+                    publishError(trackId, "Selected timer duration is invalid.")
+                    return@launch
+                }
+
+                tickJob?.cancel()
+                tickJob = null
+
+                activeTrackId = track.id
+                activeTrackTitle = track.title
+                activeTargetDurationMs = capped.durationMs
+
+                val metadata = MediaMetadata.Builder()
+                    .setTitle(track.title)
+                    .setSubtitle(getString(R.string.notification_subtitle))
+                    .setArtist(getString(R.string.notification_subtitle))
+                    .build()
+
+                val mediaItem = MediaItem.Builder()
+                    .setMediaId(track.id)
+                    .setUri(Uri.fromFile(audioFile))
+                    .setMediaMetadata(metadata)
+                    .build()
+
+                val startTick = timerEngine.start(
+                    targetDurationMs = capped.durationMs,
+                    nowMs = SystemClock.elapsedRealtime()
+                )
+
+                // Start-Fresh invariant: always 00:00 and full 1.0f volume
+                withInternalPlayerChange {
+                    exoPlayer.setMediaItem(mediaItem, /* startPositionMs = */ 0L)
+                    exoPlayer.volume = 1.0f
+                    exoPlayer.prepare()
+                    exoPlayer.seekTo(0L)
+                    exoPlayer.play()
+                }
+
+                if (isPlaybackBlockedOrSuppressed()) {
+                    pauseTimerOnly()
+                } else {
+                    publishSnapshot(tick = startTick, errorMessage = null)
+                    startTickLoop()
+                }
+            } finally {
+                if (pendingStartTrackId == trackId) {
+                    pendingStartTrackId = null
+                }
             }
-
-            val audioFile = trackRepository.resolveAudioFile(track)
-            if (!audioFile.exists() || !audioFile.canRead()) {
-                publishError("Local audio file is missing or unreadable. Try re-importing it.")
-                return@launch
-            }
-
-            val capped = TimerValidation.capDurationMs(requestedTargetDurationMs, track.durationMs)
-            if (capped.durationMs <= 0L) {
-                publishError("Selected timer duration is invalid.")
-                return@launch
-            }
-
-            tickJob?.cancel()
-            tickJob = null
-
-            activeTrackId = track.id
-            activeTrackTitle = track.title
-            activeTargetDurationMs = capped.durationMs
-
-            val metadata = MediaMetadata.Builder()
-                .setTitle(track.title)
-                .setSubtitle(getString(R.string.notification_subtitle))
-                .setArtist(getString(R.string.notification_subtitle))
-                .build()
-
-            val mediaItem = MediaItem.Builder()
-                .setMediaId(track.id)
-                .setUri(Uri.fromFile(audioFile))
-                .setMediaMetadata(metadata)
-                .build()
-
-            val startTick = timerEngine.start(
-                targetDurationMs = capped.durationMs,
-                nowMs = SystemClock.elapsedRealtime()
-            )
-
-            // Start-Fresh invariant: always 00:00 and full 1.0f volume
-            withInternalPlayerChange {
-                exoPlayer.stop()
-                exoPlayer.setMediaItem(mediaItem, /* startPositionMs = */ 0L)
-                exoPlayer.volume = 1.0f
-                exoPlayer.prepare()
-                exoPlayer.seekTo(0L)
-                exoPlayer.play()
-            }
-
-            publishSnapshot(tick = startTick, errorMessage = null)
-            startTickLoop()
         }
     }
 
@@ -323,8 +378,12 @@ class MeditationPlaybackService : MediaSessionService() {
             exoPlayer.volume = resumedTick.volume
             exoPlayer.play()
         }
-        publishSnapshot(tick = resumedTick, errorMessage = null)
-        startTickLoop()
+        if (isPlaybackBlockedOrSuppressed()) {
+            pauseTimerOnly()
+        } else {
+            publishSnapshot(tick = resumedTick, errorMessage = null)
+            startTickLoop()
+        }
     }
 
     private fun resumeTimerOnly() {
@@ -340,6 +399,9 @@ class MeditationPlaybackService : MediaSessionService() {
     }
 
     private fun stopAndReset(clearTrack: Boolean) {
+        startSessionJob?.cancel()
+        startSessionJob = null
+        pendingStartTrackId = null
         tickJob?.cancel()
         tickJob = null
         val resetTick = timerEngine.stopAndReset()
@@ -421,7 +483,11 @@ class MeditationPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun publishSnapshot(tick: TimerTick, errorMessage: String?) {
+    private fun publishSnapshot(
+        tick: TimerTick,
+        errorMessage: String?,
+        errorTrackId: String? = null
+    ) {
         stateStore.set(
             PlaybackSnapshot(
                 status = tick.status,
@@ -431,23 +497,37 @@ class MeditationPlaybackService : MediaSessionService() {
                 remainingMs = tick.remainingMs,
                 elapsedMs = tick.elapsedMs,
                 volume = tick.volume,
-                errorMessage = errorMessage
+                errorMessage = errorMessage,
+                errorTrackId = errorTrackId
             )
         )
     }
 
-    private fun publishError(message: String) {
+    private fun publishError(failedTrackId: String, message: String) {
         tickJob?.cancel()
         tickJob = null
         timerEngine.stopAndReset()
-        stateStore.update { current ->
-            current.copy(
-                status = PlaybackStatus.IDLE,
-                elapsedMs = 0L,
-                volume = 1.0f,
-                errorMessage = message
-            )
+        withInternalPlayerChange {
+            exoPlayer.volume = 1.0f
+            exoPlayer.pause()
+            exoPlayer.seekTo(0L)
+            exoPlayer.clearMediaItems()
         }
+        activeTrackId = null
+        activeTrackTitle = null
+        activeTargetDurationMs = 0L
+        stateStore.set(
+            PlaybackSnapshot(
+                status = PlaybackStatus.IDLE,
+                errorMessage = message,
+                errorTrackId = failedTrackId
+            )
+        )
+    }
+
+    private fun isPlaybackBlockedOrSuppressed(): Boolean {
+        return !exoPlayer.playWhenReady ||
+            exoPlayer.playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE
     }
 
     private inline fun withInternalPlayerChange(block: () -> Unit) {

@@ -85,7 +85,7 @@ class LibraryViewModel(
 
     fun deleteTrack(track: TrackEntity) {
         viewModelScope.launch {
-            playbackClient.stopIfActiveTrack(track.id)
+            playbackClient.stopIfActiveTrackAndWait(track.id)
             trackRepository.deleteTrack(track)
         }
     }

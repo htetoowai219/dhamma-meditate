@@ -67,8 +67,8 @@ class AudioFileImporter(
 
             val localFileName = "$trackId.$extension"
             val targetFile = File(audioDir, localFileName)
-            moveAtomically(tempFile, targetFile)
             finalFile = targetFile
+            moveAtomically(tempFile, targetFile)
 
             val track = TrackEntity(
                 id = trackId,

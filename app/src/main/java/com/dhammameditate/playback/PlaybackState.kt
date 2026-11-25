@@ -13,7 +13,8 @@ data class PlaybackSnapshot(
     val remainingMs: Long = 0L,
     val elapsedMs: Long = 0L,
     val volume: Float = 1.0f,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val errorTrackId: String? = null
 ) {
     val isActive: Boolean
         get() = status == PlaybackStatus.PLAYING ||
@@ -34,6 +35,6 @@ class PlaybackStateStore {
     }
 
     fun clearError() {
-        _state.update { it.copy(errorMessage = null) }
+        _state.update { it.copy(errorMessage = null, errorTrackId = null) }
     }
 }

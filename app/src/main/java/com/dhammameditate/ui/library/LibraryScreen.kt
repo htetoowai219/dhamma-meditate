@@ -97,10 +97,11 @@ fun LibraryScreen(
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            if (uiState.playback.isActive && uiState.playback.activeTrackId != null) {
+            val activeTrackId = uiState.playback.activeTrackId
+            if (uiState.playback.isActive && activeTrackId != null) {
                 ActiveSessionBanner(
                     playback = uiState.playback,
-                    onClick = { onOpenTrack(uiState.playback.activeTrackId!!) },
+                    onClick = { onOpenTrack(activeTrackId) },
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)
                 )
             }

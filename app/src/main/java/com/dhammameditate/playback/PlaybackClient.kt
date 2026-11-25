@@ -3,6 +3,8 @@ package com.dhammameditate.playback
 import android.content.Context
 import android.content.Intent
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 class PlaybackClient(
     private val context: Context,
@@ -41,16 +43,30 @@ class PlaybackClient(
         context.startService(intent)
     }
 
-    fun stopIfActiveTrack(trackId: String) {
-        if (stateStore.state.value.activeTrackId != trackId) return
+    suspend fun stopIfActiveTrackAndWait(trackId: String) {
+        val current = stateStore.state.value
+        if (current.errorTrackId == trackId) {
+            stateStore.clearError()
+        }
+        if (current.activeTrackId != trackId) return
         val intent = Intent(context, MeditationPlaybackService::class.java).apply {
             action = MeditationPlaybackService.ACTION_STOP_IF_TRACK
             putExtra(MeditationPlaybackService.EXTRA_TRACK_ID, trackId)
         }
         context.startService(intent)
+        val cleared = withTimeoutOrNull(STOP_WAIT_TIMEOUT_MS) {
+            stateStore.state.first { it.activeTrackId != trackId }
+        }
+        if (cleared == null && stateStore.state.value.activeTrackId == trackId) {
+            stateStore.set(PlaybackSnapshot())
+        }
     }
 
     fun clearError() {
         stateStore.clearError()
+    }
+
+    private companion object {
+        const val STOP_WAIT_TIMEOUT_MS = 1_500L
     }
 }

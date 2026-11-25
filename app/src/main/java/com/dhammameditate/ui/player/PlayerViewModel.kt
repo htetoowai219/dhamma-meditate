@@ -32,6 +32,12 @@ data class PlayerUiState(
         get() = status == PlaybackStatus.PLAYING ||
             status == PlaybackStatus.PAUSED ||
             status == PlaybackStatus.FADING
+
+    val hasInvalidCustomInput: Boolean
+        get() = customMinutesInput.isNotEmpty() && (customMinutesInput.toIntOrNull() ?: 0) < 1
+
+    val canStartSession: Boolean
+        get() = track != null && selectedDurationMs > 0L && !hasInvalidCustomInput
 }
 
 private data class LocalSelectionState(
@@ -113,7 +119,13 @@ class PlayerViewModel(
             progressFraction = 0f
         }
 
-        val errorMessage = if (isThisTrackLoaded || playback.activeTrackId == null) {
+        val errorMessage = if (
+            playback.errorMessage != null &&
+            (
+                playback.errorTrackId == trackId ||
+                    (playback.errorTrackId == null && (isThisTrackLoaded || playback.activeTrackId == null))
+                )
+        ) {
             playback.errorMessage
         } else {
             null
@@ -204,6 +216,7 @@ class PlayerViewModel(
     fun startSession() {
         val state = uiState.value
         val track = state.track ?: return
+        if (!state.canStartSession) return
         val capped = TimerValidation.capDurationMs(state.selectedDurationMs, track.durationMs)
         if (capped.durationMs <= 0L) return
 
