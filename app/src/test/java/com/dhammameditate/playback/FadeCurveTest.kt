@@ -51,4 +51,27 @@ class FadeCurveTest {
         )
         assertEquals(0.0f, FadeCurve.gain(remainingMs = 0L, targetDurationMs = shortTarget), 0.0f)
     }
+
+    @Test
+    fun `gainForProgress matches normative shared spec reference vectors`() {
+        // Normative vectors pinned in docs/spec/dhammameditate-shared-spec.md (DECAY_K = 3.5)
+        assertEquals(1.000000f, FadeCurve.gainForProgress(0.00), 0.00001f)
+        assertEquals(0.695493f, FadeCurve.gainForProgress(0.10), 0.00001f)
+        assertEquals(0.398704f, FadeCurve.gainForProgress(0.25), 0.00001f)
+        assertEquals(0.148047f, FadeCurve.gainForProgress(0.50), 0.00001f)
+        assertEquals(0.043558f, FadeCurve.gainForProgress(0.75), 0.00001f)
+        assertEquals(0.013049f, FadeCurve.gainForProgress(0.90), 0.00001f)
+        assertEquals(0.000000f, FadeCurve.gainForProgress(1.00), 0.0f)
+    }
+
+    @Test
+    fun `3000ms short target fade matches shared spec reference vectors`() {
+        val shortTarget = 3_000L
+        assertEquals(3_000L, FadeCurve.effectiveFadeMs(shortTarget))
+        assertEquals(1.000000f, FadeCurve.gain(remainingMs = 3_000L, targetDurationMs = shortTarget), 0.0f)
+        assertEquals(0.398704f, FadeCurve.gain(remainingMs = 2_250L, targetDurationMs = shortTarget), 0.00001f)
+        assertEquals(0.148047f, FadeCurve.gain(remainingMs = 1_500L, targetDurationMs = shortTarget), 0.00001f)
+        assertEquals(0.043558f, FadeCurve.gain(remainingMs = 750L, targetDurationMs = shortTarget), 0.00001f)
+        assertEquals(0.000000f, FadeCurve.gain(remainingMs = 0L, targetDurationMs = shortTarget), 0.0f)
+    }
 }

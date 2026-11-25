@@ -301,4 +301,126 @@ class MeditationTimerEngineTest {
         assertEquals(5_000L, ticked.elapsedMs)
         assertEquals(25_000L, ticked.remainingMs)
     }
+
+    @Test
+    fun `long 65 minute screen-off run remains timestamp accurate with zero drift`() {
+        var now = 1_000_000L
+        val targetMs = 65L * 60_000L // 65 minutes = 3,900,000ms
+        val engine = MeditationTimerEngine(clockMs = { now })
+
+        val start = engine.start(targetDurationMs = targetMs, hasIntro = false)
+        assertEquals(PlaybackStatus.PLAYING, start.status)
+        assertEquals(targetMs, start.remainingMs)
+
+        // Simulate 45 minutes screen-off with zero intermediate ticks
+        now += 45L * 60_000L
+        val after45m = engine.tick()
+        assertEquals(PlaybackStatus.PLAYING, after45m.status)
+        assertEquals(45L * 60_000L, after45m.elapsedMs)
+        assertEquals(20L * 60_000L, after45m.remainingMs)
+        assertEquals(1.0f, after45m.volume, 0.0f)
+
+        // Advance to 5 seconds before completion (inside 10s fade window)
+        now += (20L * 60_000L) - 5_000L
+        val midFade = engine.tick()
+        assertEquals(PlaybackStatus.FADING, midFade.status)
+        assertEquals(5_000L, midFade.remainingMs)
+        assertEquals(FadeCurve.gainForProgress(0.5), midFade.volume, 0.00001f)
+
+        // Final 5 seconds -> exact completion
+        now += 5_000L
+        val done = engine.tick()
+        assertEquals(PlaybackStatus.COMPLETED, done.status)
+        assertEquals(targetMs, done.elapsedMs)
+        assertEquals(0L, done.remainingMs)
+        assertEquals(0.0f, done.volume, 0.0f)
+    }
+
+    @Test
+    fun `repeated pause and resume cycles across intro main and fade preserve exact timing and gain`() {
+        var now = 50_000L
+        val targetMs = 60_000L
+        val engine = MeditationTimerEngine(clockMs = { now })
+
+        // Start with Intro
+        engine.start(targetDurationMs = targetMs, hasIntro = true)
+        now += 25_000L
+        engine.pause() // Intro pause #1
+        now += 40_000L
+        engine.resume()
+        now += 15_000L
+        engine.pause() // Intro pause #2
+        now += 10_000L
+        val introResumed = engine.resume()
+        assertEquals(PlaybackStatus.INTRO_PLAYING, introResumed.status)
+        assertEquals(0L, introResumed.elapsedMs)
+        assertEquals(targetMs, introResumed.remainingMs)
+
+        // Transition to Main
+        now += 5_000L
+        val mainStart = engine.onIntroComplete()
+        assertEquals(PlaybackStatus.PLAYING, mainStart.status)
+        assertEquals(0L, mainStart.elapsedMs)
+
+        // Play 12s, pause 90s, play 18s, pause 45s -> 30s elapsed
+        now += 12_000L
+        assertEquals(12_000L, engine.pause().elapsedMs)
+        now += 90_000L
+        assertEquals(12_000L, engine.resume().elapsedMs)
+
+        now += 18_000L
+        assertEquals(30_000L, engine.pause().elapsedMs)
+        now += 45_000L
+        assertEquals(30_000L, engine.resume().elapsedMs)
+
+        // Advance 22.5s -> 52.5s elapsed, 7.5s remaining (p = 0.25 in 10s fade)
+        now += 22_500L
+        val fadeQuarter = engine.tick()
+        assertEquals(PlaybackStatus.FADING, fadeQuarter.status)
+        assertEquals(7_500L, fadeQuarter.remainingMs)
+        assertEquals(0.398704f, fadeQuarter.volume, 0.00001f)
+
+        // Pause mid-fade for 2 minutes, then resume -> exact same remaining & gain continuity
+        val pausedFade = engine.pause()
+        assertEquals(PlaybackStatus.PAUSED, pausedFade.status)
+        assertEquals(7_500L, pausedFade.remainingMs)
+        assertEquals(0.398704f, pausedFade.volume, 0.00001f)
+
+        now += 120_000L
+        val resumedFade = engine.resume()
+        assertEquals(PlaybackStatus.FADING, resumedFade.status)
+        assertEquals(7_500L, resumedFade.remainingMs)
+        assertEquals(0.398704f, resumedFade.volume, 0.00001f)
+
+        // Advance 5s -> 2.5s remaining (p = 0.75 in 10s fade)
+        now += 5_000L
+        val fadeThreeQuarters = engine.tick()
+        assertEquals(PlaybackStatus.FADING, fadeThreeQuarters.status)
+        assertEquals(2_500L, fadeThreeQuarters.remainingMs)
+        assertEquals(0.043558f, fadeThreeQuarters.volume, 0.00001f)
+    }
+
+    @Test
+    fun `pause at exact zero or past target returns completed at zero volume`() {
+        var now = 10_000L
+        val engine = MeditationTimerEngine(clockMs = { now })
+
+        engine.start(targetDurationMs = 30_000L, hasIntro = false)
+        // Advance to exact target boundary
+        now += 30_000L
+        val pausedAtZero = engine.pause()
+        assertEquals(PlaybackStatus.COMPLETED, pausedAtZero.status)
+        assertEquals(30_000L, pausedAtZero.elapsedMs)
+        assertEquals(0L, pausedAtZero.remainingMs)
+        assertEquals(0.0f, pausedAtZero.volume, 0.0f)
+
+        // Start fresh and overshoot target before pause (e.g. delayed focus loss callback)
+        engine.start(targetDurationMs = 20_000L, hasIntro = false)
+        now += 25_000L
+        val pausedPastZero = engine.pause()
+        assertEquals(PlaybackStatus.COMPLETED, pausedPastZero.status)
+        assertEquals(20_000L, pausedPastZero.elapsedMs)
+        assertEquals(0L, pausedPastZero.remainingMs)
+        assertEquals(0.0f, pausedPastZero.volume, 0.0f)
+    }
 }

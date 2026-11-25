@@ -5,6 +5,8 @@ import com.dhammameditate.data.importer.AudioFileImporter
 import com.dhammameditate.data.local.AppDatabase
 import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
+import com.dhammameditate.playback.AndroidDistractionChecker
+import com.dhammameditate.playback.DistractionChecker
 import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackStateStore
 
@@ -38,5 +40,9 @@ class AppContainer(context: Context) {
 
     val playbackClient: PlaybackClient by lazy {
         PlaybackClient(appContext, playbackStateStore)
+    }
+
+    val distractionChecker: DistractionChecker by lazy {
+        AndroidDistractionChecker(appContext)
     }
 }

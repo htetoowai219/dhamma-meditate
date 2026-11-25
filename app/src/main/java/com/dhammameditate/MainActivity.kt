@@ -282,6 +282,7 @@ class MainActivity : ComponentActivity() {
                         )
                         SessionPlayerScreen(
                             viewModel = sessionPlayerViewModel,
+                            distractionChecker = container.distractionChecker,
                             askedNotificationPermission = askedNotificationPermission,
                             onNotificationPermissionAsked = { askedNotificationPermission = true },
                             onEditSession = { sessionId ->
@@ -309,6 +310,7 @@ class MainActivity : ComponentActivity() {
                         )
                         PlayerScreen(
                             viewModel = playerViewModel,
+                            distractionChecker = container.distractionChecker,
                             askedNotificationPermission = askedNotificationPermission,
                             onNotificationPermissionAsked = { askedNotificationPermission = true },
                             onBack = {

@@ -1,11 +1,6 @@
 package com.dhammameditate.ui.player
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,15 +46,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dhammameditate.playback.DistractionChecker
 import com.dhammameditate.playback.PlaybackStatus
 import com.dhammameditate.playback.TimerValidation
+import com.dhammameditate.ui.common.rememberSessionStartLauncher
 import com.dhammameditate.ui.theme.AlertRed
 import com.dhammameditate.ui.theme.AlertSurface
 import com.dhammameditate.ui.theme.CardSurface
@@ -79,6 +74,7 @@ import com.dhammameditate.ui.theme.WhiteMuted
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    distractionChecker: DistractionChecker,
     askedNotificationPermission: Boolean,
     onNotificationPermissionAsked: () -> Unit,
     onBack: () -> Unit
@@ -86,30 +82,14 @@ fun PlayerScreen(
     BackHandler(onBack = onBack)
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { _ ->
-        // Proceed with foreground playback regardless of whether permission was granted or denied
-        viewModel.startSession()
-    }
-
-    val requestStartSession: () -> Unit = {
-        val needsPrompt = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !askedNotificationPermission &&
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-
-        if (needsPrompt) {
-            onNotificationPermissionAsked()
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            viewModel.startSession()
-        }
-    }
+    val requestStartSession = rememberSessionStartLauncher(
+        distractionChecker = distractionChecker,
+        status = uiState.status,
+        canStart = uiState.canStartSession,
+        askedNotificationPermission = askedNotificationPermission,
+        onNotificationPermissionAsked = onNotificationPermissionAsked,
+        onStartSession = viewModel::startSession
+    )
 
     Column(
         modifier = Modifier

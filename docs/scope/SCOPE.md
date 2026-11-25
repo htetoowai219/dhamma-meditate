@@ -22,7 +22,7 @@ Out of scope for the current roadmap so phases stay focused:
 |---|---|---|---|
 | 01 | Core Offline Audio & Timed Playback | Verified | [01-core-offline-audio-and-timed-playback.md](plans/01-core-offline-audio-and-timed-playback.md) |
 | 02 | Two-Zone Session Editor & Queue Execution | Verified | [02-two-zone-session-editor-and-queue-execution.md](plans/02-two-zone-session-editor-and-queue-execution.md) |
-| 03 | Distraction Check, Hardening & Shared Spec | Planned | — |
+| 03 | Distraction Check, Hardening & Shared Spec | Verified | [03-distraction-check-hardening-and-shared-spec.md](plans/03-distraction-check-hardening-and-shared-spec.md) |
 
 ---
 
@@ -54,7 +54,15 @@ Plan: [02-two-zone-session-editor-and-queue-execution.md](plans/02-two-zone-sess
   - [x] Wire bottom-nav `MainActivity` routing (`Sessions` | `Library`) and affected-session warnings in `LibraryScreen`
 - [x] Verify phase: `/check verify Two-Zone Session Editor & Queue Execution`
 
-### 03. Distraction Check, Hardening & Shared Spec · Planned
+### 03. Distraction Check, Hardening & Shared Spec · Verified
 Add the pre-session silence/Airplane Mode check, finalize the clean flat minimal UI (no gradients, no emojis, verified Burmese Unicode rendering, and screen-off interruption edge cases), and produce the shared source-of-truth behavior specification for the future iOS port.
 **Done when:** Starting a session while unsilenced or outside Airplane Mode shows a flat prompt recommending Airplane Mode/silencing with a Settings shortcut and "Continue anyway"; long screen-off runs, pause/continue cycles, and audio interruptions behave reliably with fresh `00:00` resets; and a shared spec documents the exact data model, timer validation, playback state machine, fade curve, supported audio formats, and distraction check contract for iOS parity.
-- [ ] Architect plan: `/architect Distraction Check, Hardening & Shared Spec`
+Plan: [03-distraction-check-hardening-and-shared-spec.md](plans/03-distraction-check-hardening-and-shared-spec.md) · Code: `app/src/main/java/com/dhammameditate/`, `app/src/test/java/com/dhammameditate/`, `docs/spec/dhammameditate-shared-spec.md`
+- [x] Architect plan: `/architect Distraction Check, Hardening & Shared Spec`
+- [x] Build phase: `/develop Distraction Check, Hardening & Shared Spec`
+  - [x] Implement pure-Kotlin `DistractionPolicy`, zero-permission `AndroidDistractionChecker`, and `DistractionPolicyTest`
+  - [x] Build flat `DistractionCheckDialog` with live `ON_RESUME` re-check and wire into `SessionPlayerScreen` & `PlayerScreen`
+  - [x] Harden `MeditationPlaybackService` interruption/boundary edge cases and expand timer & fade unit tests
+  - [x] Audit and enforce flat Material 3 UI (`tonalElevation = 0.dp`, zero gradients/emojis) and Burmese Unicode line-height safety
+  - [x] Author normative cross-platform specification at `docs/spec/dhammameditate-shared-spec.md` for iOS parity
+- [x] Verify phase: `/check verify Distraction Check, Hardening & Shared Spec`

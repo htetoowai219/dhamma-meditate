@@ -120,11 +120,12 @@ class MeditationPlaybackService : MediaSessionService() {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (isInternalPlayerChange) return
             if (activeQueueEntries.isEmpty()) return
+            val status = timerEngine.currentStatus()
+            if (status == PlaybackStatus.IDLE || status == PlaybackStatus.COMPLETED) return
             val newIndex = exoPlayer.currentMediaItemIndex
             if (newIndex !in activeQueueEntries.indices) return
             currentQueueIndex = newIndex
 
-            val status = timerEngine.currentStatus()
             if (
                 newIndex >= activeIntroCount &&
                 (status == PlaybackStatus.INTRO_PLAYING || status == PlaybackStatus.INTRO_PAUSED)
@@ -149,12 +150,16 @@ class MeditationPlaybackService : MediaSessionService() {
                 if (currentTick.status == PlaybackStatus.COMPLETED) {
                     finishSessionAtZero(currentTick)
                 } else {
+                    if (currentTick.status == PlaybackStatus.FADING) {
+                        exoPlayer.volume = currentTick.volume
+                    }
                     publishSnapshot(tick = currentTick, errorMessage = null)
                 }
             }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            if (isInternalPlayerChange) return
             if (playbackState == Player.STATE_ENDED) {
                 val status = timerEngine.currentStatus()
                 if (
@@ -670,11 +675,22 @@ class MeditationPlaybackService : MediaSessionService() {
             status != PlaybackStatus.PLAYING &&
             status != PlaybackStatus.FADING
         ) {
+            // If paused transiently by audio focus suppression, an explicit Pause clears playWhenReady
+            // so the player will not auto-resume once the interruption ends.
+            if (exoPlayer.playWhenReady) {
+                withInternalPlayerChange {
+                    exoPlayer.pause()
+                }
+            }
             return
         }
         tickJob?.cancel()
         tickJob = null
         val pausedTick = timerEngine.pause(SystemClock.elapsedRealtime())
+        if (pausedTick.status == PlaybackStatus.COMPLETED) {
+            finishSessionAtZero(pausedTick)
+            return
+        }
         withInternalPlayerChange {
             exoPlayer.pause()
         }
@@ -682,9 +698,21 @@ class MeditationPlaybackService : MediaSessionService() {
     }
 
     private fun pauseTimerOnly() {
+        val status = timerEngine.currentStatus()
+        if (
+            status != PlaybackStatus.INTRO_PLAYING &&
+            status != PlaybackStatus.PLAYING &&
+            status != PlaybackStatus.FADING
+        ) {
+            return
+        }
         tickJob?.cancel()
         tickJob = null
         val pausedTick = timerEngine.pause(SystemClock.elapsedRealtime())
+        if (pausedTick.status == PlaybackStatus.COMPLETED) {
+            finishSessionAtZero(pausedTick)
+            return
+        }
         publishSnapshot(tick = pausedTick, errorMessage = null)
     }
 
@@ -714,6 +742,7 @@ class MeditationPlaybackService : MediaSessionService() {
     }
 
     private fun resumeTimerOnly() {
+        if (isPlaybackBlockedOrSuppressed()) return
         val status = timerEngine.currentStatus()
         if (status != PlaybackStatus.INTRO_PAUSED && status != PlaybackStatus.PAUSED) return
         val resumedTick = timerEngine.resume(SystemClock.elapsedRealtime())

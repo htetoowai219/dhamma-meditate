@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -200,9 +201,11 @@ fun LibraryScreen(
 
         AlertDialog(
             onDismissRequest = viewModel::dismissDeleteTrack,
+            modifier = Modifier.border(1.dp, OutlineNeutral, RoundedCornerShape(16.dp)),
             containerColor = CardSurface,
             titleContentColor = InkPrimary,
             textContentColor = InkSecondary,
+            tonalElevation = 0.dp,
             shape = RoundedCornerShape(16.dp),
             title = {
                 Text(
