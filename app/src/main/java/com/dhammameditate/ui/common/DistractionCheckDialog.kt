@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -50,9 +51,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.dhammameditate.R
 import com.dhammameditate.playback.DistractionChecker
 import com.dhammameditate.playback.DistractionEvaluation
 import com.dhammameditate.playback.DistractionSettingsNavigator
+import com.dhammameditate.playback.DistractionStatusKind
 import com.dhammameditate.playback.PlaybackStatus
 import com.dhammameditate.ui.theme.CardSurface
 import com.dhammameditate.ui.theme.InkPrimary
@@ -197,6 +200,7 @@ fun DistractionCheckDialog(
     val isReady = evaluation.isReady
 
     Dialog(onDismissRequest = onDismiss) {
+        ProvideLocalizedDialogContext {
         Surface(
             color = CardSurface,
             shape = RoundedCornerShape(16.dp),
@@ -234,7 +238,11 @@ fun DistractionCheckDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = if (isReady) "Ready to Meditate" else "Silence Distractions?",
+                    text = if (isReady) {
+                        stringResource(R.string.distraction_ready_title)
+                    } else {
+                        stringResource(R.string.distraction_prompt_title)
+                    },
                     style = MaterialTheme.typography.titleLarge,
                     color = InkPrimary,
                     textAlign = TextAlign.Center
@@ -243,7 +251,16 @@ fun DistractionCheckDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = evaluation.statusSummary,
+                    text = stringResource(
+                        when (evaluation.statusKind) {
+                            DistractionStatusKind.AIRPLANE_ON -> R.string.distraction_summary_airplane
+                            DistractionStatusKind.DND_ACTIVE -> R.string.distraction_summary_dnd
+                            DistractionStatusKind.RINGER_SILENT -> R.string.distraction_summary_silent
+                            DistractionStatusKind.RINGER_NORMAL -> R.string.distraction_summary_normal
+                            DistractionStatusKind.RINGER_VIBRATE -> R.string.distraction_summary_vibrate
+                            DistractionStatusKind.UNKNOWN_UNSILENCED -> R.string.distraction_summary_unknown
+                        }
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = InkPrimary,
                     textAlign = TextAlign.Center
@@ -252,7 +269,13 @@ fun DistractionCheckDialog(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = evaluation.guidanceText,
+                    text = stringResource(
+                        if (isReady) {
+                            R.string.distraction_guidance_ready
+                        } else {
+                            R.string.distraction_guidance_not_ready
+                        }
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = InkSecondary,
                     textAlign = TextAlign.Center
@@ -279,7 +302,7 @@ fun DistractionCheckDialog(
                                 .height(50.dp)
                         ) {
                             Text(
-                                text = "Start Session",
+                                text = stringResource(R.string.transport_start_session),
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
@@ -296,7 +319,7 @@ fun DistractionCheckDialog(
                                 .height(50.dp)
                         ) {
                             Text(
-                                text = "Open Settings",
+                                text = stringResource(R.string.distraction_open_settings),
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
@@ -314,7 +337,7 @@ fun DistractionCheckDialog(
                                 .height(50.dp)
                         ) {
                             Text(
-                                text = "Continue anyway",
+                                text = stringResource(R.string.distraction_continue_anyway),
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
@@ -322,13 +345,14 @@ fun DistractionCheckDialog(
 
                     TextButton(onClick = onDismiss) {
                         Text(
-                            text = "Cancel",
+                            text = stringResource(R.string.common_cancel),
                             style = MaterialTheme.typography.labelLarge,
                             color = InkSecondary
                         )
                     }
                 }
             }
+        }
         }
     }
 }

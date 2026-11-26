@@ -4,7 +4,7 @@
   <p>
     <img src="https://img.shields.io/badge/android-API%2026%2B-informational?style=flat-square" alt="Android API 26+" />
     <img src="https://img.shields.io/badge/kotlin-2.0.21-blue?style=flat-square" alt="Kotlin 2.0.21" />
-    <img src="https://img.shields.io/badge/version-0.2.0-lightgrey?style=flat-square" alt="Version 0.2.0" />
+    <img src="https://img.shields.io/badge/version-0.3.0-lightgrey?style=flat-square" alt="Version 0.3.0" />
   </p>
   <p>
     <img src="docs/assets/hero-preview.png" alt="DhammaMeditate App Preview" width="840" />
@@ -24,7 +24,7 @@
 git clone https://github.com/htetoowai219/dhamma-meditate.git
 cd dhamma-meditate
 
-# 2. Run the unit test suite (44 tests, JVM-only)
+# 2. Run the unit test suite (49 tests, JVM-only)
 ./gradlew testDebugUnitTest
 
 # 3. Build the debug APK
@@ -46,7 +46,7 @@ Standard media players and timer apps break down during long silent sits: Androi
 - **Off-Screen Timed Playback & Fade-Out:** Runs inside a foreground Media3 `MediaSessionService` (`mediaPlayback` type) backed by `SystemClock.elapsedRealtime()`. Over the final 10 seconds, volume ramps down on an exponential curve (`k = 3.5`) before resetting cleanly to `00:00`.
 - **Restricted Controls:** Only **Start**, **Pause / Continue**, and **Stop & Reset** are exposed on the lock screen and headset remotes (with in-app **Skip to Main** visible strictly during Intro playback). Seeking, Main-queue skipping, and cross-session resume are blocked at the player boundary (`RestrictedMeditationPlayer`).
 - **Pre-Session Distraction Check:** Checks Airplane Mode, Do Not Disturb, and ringer state via standard Android read APIs with zero extra permissions. If alerts are active, a dialog links directly to system settings and re-evaluates on return (`ON_RESUME`) while allowing **Continue anyway**.
-- **Burmese Unicode & Flat UI:** Built with Jetpack Compose and flat Material 3 tokens (`tonalElevation = 0.dp`, `1dp` outlines, no gradients or shadows) and `1.45x–1.5x` line heights so stacked Myanmar diacritics do not clip.
+- **Bilingual UI (English & Burmese `မြန်မာ`) & Flat Design:** Switch instantly between English and Burmese (`တရားဖော်`) via the flat `EN | မြန်မာ` header pill without restarting the app or interrupting playback. Defaults to the device locale on first launch, keeps Western numerals (`0-9`) for timers and durations, and uses flat Material 3 tokens (`tonalElevation = 0.dp`, `1dp` outlines, no gradients or shadows) with `1.45x–1.5x` line heights so stacked Myanmar diacritics never clip.
 
 ## How It Works
 
@@ -80,13 +80,16 @@ app/src/
 │       ├── data/
 │       │   ├── importer/            # Atomic AudioFileImporter + format/duration probing
 │       │   ├── local/               # Room v2 AppDatabase (MIGRATION_1_2), Track/Session DAOs & entities
+│       │   ├── preferences/         # AppLanguageStore (SharedPreferences + StateFlow) & ContextWrapper locale helper
 │       │   └── repository/          # TrackRepository and SessionRepository (cascade-remove & timer clamping)
 │       ├── di/                      # Manual AppContainer dependency graph
 │       ├── playback/                # MeditationPlaybackService, MeditationTimerEngine, FadeCurve,
 │       │                            # RestrictedMeditationPlayer, DistractionPolicy, TimerValidation
 │       └── ui/                      # Compose screens (Sessions, Library, Editor, SessionPlayer, Player),
-│                                    # DistractionCheckDialog, ActiveSessionBanner, flat Material 3 theme
+│                                    # LanguageTogglePill, DistractionCheckDialog, ActiveSessionBanner, flat M3 theme
 └── test/java/com/dhammameditate/
+    ├── data/preferences/
+    │   └── AppLanguageTest.kt           # First-launch locale resolution & saved preference override
     ├── playback/
     │   ├── DistractionPolicyTest.kt     # Airplane Mode / DND / ringer policy matrix
     │   ├── FadeCurveTest.kt             # Exponential curve and short-session boundary vectors
@@ -119,13 +122,13 @@ All user data stays on-device (`android:allowBackup="false"`):
 ## Common Commands
 
 ```bash
-./gradlew testDebugUnitTest   # Run all 44 JUnit 4 unit tests
+./gradlew testDebugUnitTest   # Run all 49 JUnit 4 unit tests
 ./gradlew lintDebug           # Run Android Lint checks
 ./gradlew assembleDebug       # Build debug APK (app/build/outputs/apk/debug/app-debug.apk)
 ./gradlew installDebug        # Build and install debug APK to connected device/emulator
 ```
 
 ## Next Up
-- **Native iOS Client:** Implement the Swift + AVFoundation app directly from [docs/spec/dhammameditate-shared-spec.md](docs/spec/dhammameditate-shared-spec.md).
+- **Guided Tutorial:** Add a bilingual onboarding walkthrough for first-time meditators.
+- **Native iOS Client:** Implement the Swift + AVFoundation app directly from [docs/spec/dhammameditate-shared-spec.md](docs/spec/dhammameditate-shared-spec.md) (v1.2, including the canonical 170-key English/Burmese glossary).
 - **Configurable Fade-Out Window:** Allow adjusting the current fixed 10-second fade-out duration per session or globally.
-- **Bilingual UI Localization:** Add full Burmese UI strings alongside English while preserving current Myanmar Unicode rendering rules.

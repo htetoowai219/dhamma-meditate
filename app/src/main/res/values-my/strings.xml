@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">တရားဖော်</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 1: Navigation, Headers, Common Actions & Sessions Screen      -->
+    <!-- =================================================================== -->
+    <string name="nav_sessions">တရားချိန်များ</string>
+    <string name="nav_library">တရားများ</string>
+    <string name="common_cancel">မလုပ်ပါ</string>
+    <string name="common_delete">ဖျက်မည်</string>
+    <string name="common_save">သိမ်းဆည်းမည်</string>
+    <string name="common_back">နောက်သို့</string>
+
+    <string name="sessions_header_subtitle">တရားချိန်များ</string>
+    <string name="sessions_new_button">တရားချိန် အသစ်</string>
+    <string name="sessions_empty_title">တရားချိန်သတ်မှတ်ထားခြင်း မရှိသေးပါ</string>
+    <string name="sessions_empty_body_has_tracks">ပရိကံတရား နှင့် ကမ္မဋ္ဌာန်းတရားအား ပေါင်း၍တရားချိန်သတ်မှတ်နိုင်သည်။</string>
+    <string name="sessions_empty_body_no_tracks">ပရိကံတရား နှင့် ကမ္မဋ္ဌာန်းတရားအား ပေါင်း၍တရားချိန်သတ်မှတ်နိုင်ပါ။ တရားများ စာမျက်နှာတွင် တရားများ အရင်ထည့်သွင်းပြီးမှ တရားချိန်သတ်မှတ်ပါ။</string>
+    <string name="sessions_delete_title">တရားချိန်ဖျက်မည်လား?</string>
+    <string name="sessions_delete_message">တရားချိန် \"%1$s\" ကိုဖျက်မည်လား? ထည့်သွင်းထားသောတရားများအား သက်ရောက်မှုမရှိပါ။</string>
+    <string name="sessions_delete_active_warning">ဤတရားချိန်နှင့်ဆက်စပ်သော တရားထိုင်ခြင်း ရပ်တန့်သွားမည်။</string>
+    <string name="sessions_intro_none">ပရိကံတရား မပါဝင်ပါ</string>
+    <string name="sessions_intro_summary">ပရိကံ : %1$s</string>
+    <string name="sessions_main_empty">ကမ္မဋ္ဌာန်းတရား : မရှိပါ</string>
+    <string name="sessions_main_summary">ကမ္မဋ္ဌာန်းတရား : %1$s</string>
+    <string name="sessions_needs_main_badge">ကမ္မဋ္ဌာန်းတရား လိုအပ်ပါသည်</string>
+    <string name="sessions_timer_badge">တရားထိုင်ကြာချိန် %1$s</string>
+    <string name="sessions_edit_cd">%1$s အား ပြုပြင်မည်</string>
+    <string name="sessions_delete_cd">%1$s အား ဖျက်မည်</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 2: Library, Audio Import & Track Rename                       -->
+    <!-- =================================================================== -->
+    <string name="library_header_subtitle">သိမ်းဆည်းထားသောတရားများ</string>
+    <string name="library_import_button">တရားဖိုင်ထည့်မည်</string>
+    <string name="library_importing">ထည့်သွင်းနေသည်</string>
+    <string name="library_empty_title">သိမ်းဆည်းထားသောတရားများမရှိသေးပါ</string>
+    <string name="library_empty_body">MP3, M4A, AAC, WAV, FLAC, OGG format ဖြင့် အသံသွင်းထားသော တရားများ ထည့်သွင်းနိုင်ပါသည်။</string>
+    <string name="library_import_error_title_one">File 1 ခုထည့်သွင်း၍မရပါ</string>
+    <string name="library_import_error_title_other">File %1$s ခုထည့်သွင်း၍မရပါ</string>
+    <string name="library_dismiss_import_error_cd">Error အားပိတ်မည်</string>
+    <string name="library_delete_track_title">တရားအား ဖျက်မည်လား?</string>
+    <string name="library_delete_track_message">%1$s အား ဖျက်မည်လား?</string>
+    <string name="library_delete_track_active_warning">ဤတရားအားအသုံးပြုထားသော တရားချိန်များရပ်တန့်သွားမည်</string>
+    <string name="library_delete_track_used_one">တရားချိန် %1$s ခုတွင် အသုံးပြုထားသည်။ (တရားထိုင်ချိန်များ ပြောင်းလဲသွားနိုင်သည်)</string>
+    <string name="library_delete_track_used_other">တရားချိန် %1$s ခုတွင် အသုံးပြုထားသည်။ (တရားထိုင်ချိန်များ ပြောင်းလဲသွားနိုင်သည်)</string>
+    <string name="library_delete_track_empties_main">စတင်ရန်အတွက် ကမ္မဋ္ဌာန်းတရားလိုအပ်ပါသည်။</string>
+    <string name="library_rename_cd">%1$s အား အမည်ပြောင်းမည်</string>
+    <string name="library_delete_cd">%1$s အား ဖျက်မည်</string>
+    <string name="library_open_cd">%1$s အား ဖွင့်မည်</string>
+
+    <string name="rename_batch_prompt_title">ထည့်သွင်းထားသောတရားများအား အမည်ပြောင်းမည်လား? (လွယ်ကူစွာရှာဖွေနိုင်ရန် အမည်ပြောင်းဖို့ အကြံပြုပါသည်)</string>
+    <string name="rename_batch_prompt_message">တရား %1$s ပုဒ် ထည့်သွင်းပြီးပါပြီ။ တရားတော်များအား အမည်ပြောင်းလဲသတ်မှတ်ထားလိုပါသလား?</string>
+    <string name="rename_batch_confirm">အမည်ပြောင်းခြင်း အတည်ပြုမည်</string>
+    <string name="rename_batch_skip_all">အကုန်ကျော်မည်</string>
+    <string name="rename_step_title">အမည်ပြောင်းခြင်းလုပ်ငန်းစဥ် (%2$s ခု တွင် %1$s ခု ပြီးစီး)</string>
+    <string name="rename_single_import_title">ထည့်သွင်းလိုက်သောတရားအား အမည်သတ်မှတ်လိုပါသလား</string>
+    <string name="rename_existing_title">တရားအား အမည်ပြောင်းလဲ သတ်မှတ်မည်</string>
+    <string name="rename_field_label">တရား အမည်</string>
+    <string name="rename_blank_error">တရားအမည်မှာ ကွက်လပ်ဖြစ်၍မရပါ</string>
+    <string name="rename_save_and_next">သိမ်းဆည်းမည်။ နောက်တစ်ခု။</string>
+    <string name="rename_skip">ကျော်ပါ</string>
+    <string name="rename_keep_default">ယခုအတိုင်းပဲထားမည်</string>
+    <string name="rename_skip_remaining">ကျန်သောတရားများအား ကျော်မည်</string>
+
+    <string name="import_fallback_file_name">ရွေးချယ်ထားသော File</string>
+    <string name="import_error_unsupported_format">ဤ File အား ထည့်သွင်း၍မရပါ။ ထည့်သွင်း၍ရသည်များ : MP3, M4A/AAC, WAV, FLAC, OGG.</string>
+    <string name="import_error_storage">အက်ပလိကေးရှင်း တွင် သိမ်းဆည်းမှု Error ဖြစ်ပေါ်နေပါသည်။ သိမ်းဆည်း၍မရပါ။</string>
+    <string name="import_error_empty_file">File အား ဖတ်၍မရပါ</string>
+    <string name="import_error_corrupt_or_drm">File က ပျက်စီးနေပါသည် (သို့) အသံမပါဝင်ပါ</string>
+    <string name="import_error_open_failed">ရွေးချယ်ထားသော File အားဖွင့်၍မရပါ</string>
+    <string name="import_error_drm">DRM ကာကွယ်ထားသော အသံဖိုင်များကို ထည့်သွင်း၍မရပါ။</string>
+    <string name="import_error_video">Video ဖိုင်များကို ထည့်သွင်း၍မရပါ။ အသံဖိုင်ကိုသာ ရွေးချယ်ပါ။</string>
+    <string name="import_error_no_audio_stream">ဤ File တွင် ဖတ်၍ရသော အသံမပါဝင်ပါ။</string>
+    <string name="import_error_zero_duration">အသံကြာချိန်ကို ဖတ်၍မရပါ (သို့) 0 ဖြစ်နေပါသည်။</string>
+    <string name="import_error_generic">File အား ထည့်သွင်း၍မရပါ။ ပျက်စီးနေခြင်း (သို့) ပံ့ပိုးမထားသော format ဖြစ်နိုင်ပါသည်။</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 3: Session Editor & Timer Validation                          -->
+    <!-- =================================================================== -->
+    <string name="editor_title_new">တရားချိန် အသစ်</string>
+    <string name="editor_title_edit">တရားချိန် ပြုပြင်မည်</string>
+    <string name="editor_not_found_title">တရားချိန် ရှာမတွေ့ပါ</string>
+    <string name="editor_not_found_body">ဤတရားချိန်သည် ဖျက်ပြီးဖြစ်နိုင်ပါသည်။</string>
+    <string name="editor_back_to_sessions">တရားချိန်များသို့ ပြန်သွားမည်</string>
+    <string name="editor_active_warning">ပြောင်းလဲမှုများကို သိမ်းဆည်းပါက လက်ရှိတရားထိုင်နေခြင်း ရပ်တန့်၍ အစမှပြန်စပါမည်။</string>
+    <string name="editor_session_name_label">တရားချိန် အမည်</string>
+    <string name="editor_session_name_error">တရားချိန် အမည် ထည့်သွင်းပါ</string>
+    <string name="editor_intro_title">ပရိကံတရား</string>
+    <string name="editor_intro_subtitle">မထည့်လည်းရသည် · အချိန်ရေတွက်ခြင်း မစတင်သေးပါ</string>
+    <string name="editor_intro_empty">ပရိကံတရား မရှိပါ။ ကမ္မဋ္ဌာန်းတရားမှ တိုက်ရိုက်စတင်ပါမည်။</string>
+    <string name="editor_intro_footer">ပရိကံ စုစုပေါင်းကြာချိန်: %1$s (အချိန်မရေတွက်ပါ)</string>
+    <string name="editor_main_title">ကမ္မဋ္ဌာန်းတရား</string>
+    <string name="editor_main_subtitle">မဖြစ်မနေထည့်ရန် · စုစုပေါင်း: %1$s</string>
+    <string name="editor_main_empty">ကမ္မဋ္ဌာန်းတရား အနည်းဆုံး 1 ပုဒ် ထည့်သွင်းပါ</string>
+    <string name="editor_add_track">တရားထည့်မည်</string>
+    <string name="editor_move_up_cd">အပေါ်သို့ရွှေ့မည်</string>
+    <string name="editor_move_down_cd">အောက်သို့ရွှေ့မည်</string>
+    <string name="editor_remove_track_cd">%1$s အား ဖယ်ရှားမည်</string>
+    <string name="editor_timer_title">တရားထိုင်ကြာချိန်</string>
+    <string name="editor_timer_hint">ကမ္မဋ္ဌာန်းတရားအတွက်သာ သက်ရောက်သည် (စုစုပေါင်းကြာချိန်ထက် မကျော်လွန်နိုင်ပါ)။</string>
+    <string name="editor_save_button">တရားချိန် သိမ်းဆည်းမည်</string>
+    <string name="editor_saving">သိမ်းဆည်းနေသည်…</string>
+    <string name="editor_save_error_generic">တရားချိန်ကို သိမ်းဆည်း၍မရပါ။ တရားများကို စစ်ဆေးပြီး ထပ်မံကြိုးစားပါ။</string>
+
+    <string name="picker_add_intro">ပရိကံတရား ထည့်မည်</string>
+    <string name="picker_add_main">ကမ္မဋ္ဌာန်းတရား ထည့်မည်</string>
+    <string name="picker_close_cd">တရားရွေးချယ်မှု ပိတ်မည်</string>
+    <string name="picker_empty_title">သိမ်းဆည်းထားသောတရားများမရှိသေးပါ</string>
+    <string name="picker_empty_body">တရားများ စာမျက်နှာတွင် အသံဖိုင်များ အရင်ထည့်သွင်းပြီးမှ ပရိကံ (သို့) ကမ္မဋ္ဌာန်းတရားအဖြစ် ထည့်သွင်းပါ။</string>
+
+    <string name="timer_preset_minutes">%1$s မိနစ်</string>
+    <string name="timer_preset_full">အပြည့်</string>
+    <string name="timer_custom_minutes_label">စိတ်ကြိုက် မိနစ် (အနည်းဆုံး 1)</string>
+    <string name="timer_error_min_one_minute">အနည်းဆုံး 1 မိနစ် ထည့်သွင်းပါ</string>
+    <string name="timer_error_invalid_duration">မှန်ကန်သော တရားထိုင်ကြာချိန်ကို ရွေးချယ်ပါ။</string>
+    <string name="timer_adjusted_track">တရားကြာချိန်အတိုင်း ညှိပြီး (%1$s)</string>
+    <string name="timer_adjusted_main_queue">ကမ္မဋ္ဌာန်းတရား ကြာချိန်အတိုင်း ညှိပြီး (%1$s)</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 4: Players, Active Banner, Distraction Check & Notifications  -->
+    <!-- =================================================================== -->
+    <string name="session_player_title">တရားချိန်</string>
+    <string name="session_player_edit_cd">တရားချိန် ပြုပြင်မည်</string>
+    <string name="session_player_unavailable_title">တရားချိန် မရရှိနိုင်ပါ</string>
+    <string name="session_player_unavailable_body">ဤတရားချိန် မရှိတော့ပါ။</string>
+    <string name="session_player_needs_main_banner">စတင်ရန်အတွက် ကမ္မဋ္ဌာန်းတရားလိုအပ်ပါသည်။</string>
+    <string name="session_player_queue_intro_header">ပရိကံတရား · အချိန်မရေတွက်ပါ (%1$s)</string>
+    <string name="session_player_queue_main_header">ကမ္မဋ္ဌာန်းတရား · စုစုပေါင်း %1$s</string>
+    <string name="session_player_queue_main_empty">ကမ္မဋ္ဌာန်းတရား ထည့်သွင်းထားခြင်း မရှိပါ။</string>
+    <string name="session_player_pill_intro">ပရိကံ · %2$s ပုဒ်တွင် %1$s ပုဒ်မြောက် · အချိန်မစသေးပါ</string>
+    <string name="session_player_pill_main">ကမ္မဋ္ဌာန်း · %2$s ပုဒ်တွင် %1$s ပုဒ်မြောက်</string>
+    <string name="session_player_pill_completed">ပြီးဆုံးပါပြီ · နောက်တစ်ကြိမ်တွင် 00:00 မှ ပြန်စပါမည်</string>
+    <string name="session_player_pill_ready_intro_main">အသင့်ဖြစ်ပါပြီ · ပရိကံ + ကမ္မဋ္ဌာန်း</string>
+    <string name="session_player_pill_ready_main_only">အသင့်ဖြစ်ပါပြီ · ကမ္မဋ္ဌာန်းသီးသန့်</string>
+
+    <string name="player_title">အချိန်သတ်မှတ် တရားနာမည်</string>
+    <string name="player_back_to_library">တရားများသို့ ပြန်သွားမည်</string>
+    <string name="player_track_unavailable_title">တရားဖိုင် မရရှိနိုင်ပါ</string>
+    <string name="player_track_unavailable_body">ဤအသံဖိုင်သည် သိမ်းဆည်းထားသောတရားများတွင် မရှိတော့ပါ။</string>
+    <string name="player_track_length">တရားကြာချိန် · %1$s</string>
+    <string name="player_session_duration">တရားထိုင်ကြာချိန်</string>
+    <string name="player_locked_while_active">ဖွင့်နေစဥ် ပြောင်းလဲ၍မရပါ</string>
+    <string name="player_dismiss_error_cd">Error အားပိတ်မည်</string>
+
+    <string name="transport_start_session">စတင်မည်</string>
+    <string name="transport_pause">ခေတ္တရပ်မည်</string>
+    <string name="transport_continue">ဆက်ဖွင့်မည်</string>
+    <string name="transport_skip_to_main">ကမ္မဋ္ဌာန်းသို့ ကျော်မည်</string>
+    <string name="action_stop_reset">ရပ်၍ အစမှပြန်စမည်</string>
+
+    <string name="status_ready">အသင့်ဖြစ်ပါပြီ</string>
+    <string name="status_intro_playing_session">ပရိကံတရား ဖွင့်နေသည် · အချိန်မစသေးပါ</string>
+    <string name="status_intro_paused_session">ပရိကံတရား ခေတ္တရပ်ထားသည် · အချိန်မစသေးပါ</string>
+    <string name="status_playing_main">ကမ္မဋ္ဌာန်းတရား ဖွင့်နေသည်</string>
+    <string name="status_intro_playing_quick">ပရိကံတရား ဖွင့်နေသည်</string>
+    <string name="status_intro_paused_quick">ပရိကံတရား ခေတ္တရပ်ထားသည်</string>
+    <string name="status_playing">ဖွင့်နေသည်</string>
+    <string name="status_paused">ခေတ္တရပ်ထားသည်</string>
+    <string name="status_fading">အသံဖြည်းဖြည်းလျှော့နေသည်…</string>
+    <string name="status_completed">တရားချိန် ပြီးဆုံးပါပြီ</string>
+
+    <string name="banner_default_title">လက်ရှိ တရားချိန်</string>
+    <string name="banner_phase_intro">ပရိကံ</string>
+    <string name="banner_phase_intro_paused">ပရိကံ · ခေတ္တရပ်</string>
+    <string name="banner_phase_main">ကမ္မဋ္ဌာန်း</string>
+    <string name="banner_phase_playing">ဖွင့်နေသည်</string>
+    <string name="banner_phase_paused">ခေတ္တရပ်</string>
+    <string name="banner_phase_fading">အသံလျှော့နေသည်</string>
+    <string name="banner_phase_active">ဖွင့်နေသည်</string>
+    <string name="banner_icon_cd">လက်ရှိ တရားထိုင်နေသည်</string>
+    <string name="banner_return_cd">လက်ရှိ တရားချိန်သို့ ပြန်သွားမည်</string>
+
+    <string name="distraction_ready_title">တရားထိုင်ရန် အသင့်ဖြစ်ပါပြီ</string>
+    <string name="distraction_prompt_title">အနှောင့်အယှက်များ ပိတ်ထားမည်လား?</string>
+    <string name="distraction_open_settings">Settings ဖွင့်မည်</string>
+    <string name="distraction_continue_anyway">ဆက်လက်စတင်မည်</string>
+    <string name="distraction_summary_airplane">Airplane Mode ဖွင့်ထားပြီးဖြစ်၍ အေးချမ်းစွာ တရားထိုင်နိုင်ပါပြီ။</string>
+    <string name="distraction_summary_dnd">Do Not Disturb ဖွင့်ထားပြီးဖြစ်၍ အေးချမ်းစွာ တရားထိုင်နိုင်ပါပြီ။</string>
+    <string name="distraction_summary_silent">ဖုန်းအသံပိတ်ထားပြီးဖြစ်၍ အေးချမ်းစွာ တရားထိုင်နိုင်ပါပြီ။</string>
+    <string name="distraction_summary_normal">Airplane Mode ပိတ်ထားပြီး ဖုန်းအသံ ဖွင့်ထားပါသည်။</string>
+    <string name="distraction_summary_vibrate">Airplane Mode ပိတ်ထားပြီး တုန်ခါမှု (Vibrate) ဖွင့်ထားပါသည်။</string>
+    <string name="distraction_summary_unknown">Airplane Mode ပိတ်ထားသောကြောင့် အသိပေးချက်များ ဝင်ရောက်နိုင်ပါသည်။</string>
+    <string name="distraction_guidance_ready">ဖုန်းသည် တိတ်ဆိတ်နေပြီး တရားထိုင်ရန် အသင့်ဖြစ်နေပါပြီ။</string>
+    <string name="distraction_guidance_not_ready">ဖုန်းခေါ်ဆိုမှုနှင့် အသိပေးချက်များ မနှောင့်ယှက်စေရန် Airplane Mode ဖွင့်ထားရန် (သို့) အသံပိတ်ထားရန် အကြံပြုပါသည်။</string>
+
+    <string name="notification_subtitle">တရားဖော် · အချိန်သတ်မှတ် တရားချိန်</string>
+    <string name="notification_session_intro">%1$s · ပရိကံ (%2$s/%3$s)</string>
+    <string name="notification_session_main">%1$s · ကမ္မဋ္ဌာန်း (%2$s/%3$s)</string>
+    <string name="playback_error_failed">အသံဖွင့်၍မရပါ။ File ပျောက်ဆုံးနေခြင်း (သို့) ဖတ်၍မရခြင်း ဖြစ်နိုင်ပါသည်။</string>
+    <string name="playback_error_track_not_found">ရွေးချယ်ထားသောတရားကို သိမ်းဆည်းထားသောတရားများတွင် ရှာမတွေ့ပါ။</string>
+    <string name="playback_error_file_missing">အသံဖိုင် ပျောက်ဆုံးနေသည် (သို့) ဖတ်၍မရပါ။ ပြန်လည်ထည့်သွင်းကြည့်ပါ။</string>
+    <string name="playback_error_invalid_timer">ရွေးချယ်ထားသော တရားထိုင်ကြာချိန် မမှန်ကန်ပါ။</string>
+    <string name="playback_error_session_not_found">ရွေးချယ်ထားသော တရားချိန်ကို ရှာမတွေ့ပါ။</string>
+    <string name="playback_error_session_needs_main">ဤတရားချိန်ကို စတင်ရန် ကမ္မဋ္ဌာန်းတရား အနည်းဆုံး 1 ပုဒ် လိုအပ်ပါသည်။</string>
+    <string name="playback_error_session_invalid_timer">တရားထိုင်ကြာချိန် မမှန်ကန်ပါ။ တရားချိန်ကို ပြုပြင်၍ ကြာချိန်သတ်မှတ်ပါ။</string>
+    <string name="playback_error_missing_intro_track">ပရိကံတရား \"%1$s\" ပျောက်ဆုံးနေသည် (သို့) ဖတ်၍မရပါ။ ပြန်လည်ထည့်သွင်းပါ (သို့) တရားချိန်ကို ပြုပြင်ပါ။</string>
+    <string name="playback_error_missing_main_track">ကမ္မဋ္ဌာန်းတရား \"%1$s\" ပျောက်ဆုံးနေသည် (သို့) ဖတ်၍မရပါ။ ပြန်လည်ထည့်သွင်းပါ (သို့) တရားချိန်ကို ပြုပြင်ပါ။</string>
+</resources>

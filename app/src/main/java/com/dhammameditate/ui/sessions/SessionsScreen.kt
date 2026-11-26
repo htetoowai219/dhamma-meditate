@@ -44,13 +44,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dhammameditate.R
+import com.dhammameditate.data.preferences.AppLanguage
 import com.dhammameditate.data.repository.SessionWithQueues
 import com.dhammameditate.playback.TimerValidation
 import com.dhammameditate.ui.common.ActiveSessionBanner
+import com.dhammameditate.ui.common.LanguageTogglePill
+import com.dhammameditate.ui.common.ProvideLocalizedDialogContext
 import com.dhammameditate.ui.theme.AlertRed
 import com.dhammameditate.ui.theme.AlertSurface
 import com.dhammameditate.ui.theme.CardSurface
@@ -67,6 +72,8 @@ import com.dhammameditate.ui.theme.WhiteMuted
 @Composable
 fun SessionsScreen(
     viewModel: SessionsViewModel,
+    currentLanguage: AppLanguage,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onNewSession: () -> Unit,
     onOpenSession: (String) -> Unit,
     onEditSession: (String) -> Unit,
@@ -80,7 +87,10 @@ fun SessionsScreen(
             .fillMaxSize()
             .background(LightNeutral)
     ) {
-        SessionsHeader()
+        SessionsHeader(
+            currentLanguage = currentLanguage,
+            onSelectLanguage = onSelectLanguage
+        )
 
         Column(
             modifier = Modifier
@@ -156,7 +166,7 @@ fun SessionsScreen(
                     .height(54.dp)
             ) {
                 Text(
-                    text = "New Session",
+                    text = stringResource(R.string.sessions_new_button),
                     style = MaterialTheme.typography.labelLarge
                 )
             }
@@ -174,45 +184,54 @@ fun SessionsScreen(
             tonalElevation = 0.dp,
             shape = RoundedCornerShape(16.dp),
             title = {
-                Text(
-                    text = "Delete session?",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = InkPrimary
-                )
+                ProvideLocalizedDialogContext {
+                    Text(
+                        text = stringResource(R.string.sessions_delete_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = InkPrimary
+                    )
+                }
             },
             text = {
-                val extra = if (isActiveSession) {
-                    " Active playback for this session will stop and reset."
-                } else {
-                    ""
+                ProvideLocalizedDialogContext {
+                    val baseMessage = stringResource(R.string.sessions_delete_message, session.name)
+                    val fullMessage = if (isActiveSession) {
+                        "$baseMessage ${stringResource(R.string.sessions_delete_active_warning)}"
+                    } else {
+                        baseMessage
+                    }
+                    Text(
+                        text = fullMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkSecondary
+                    )
                 }
-                Text(
-                    text = "Remove \"${session.name}\"? Your imported audio files in the Library will remain intact.$extra",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = InkSecondary
-                )
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteSession(session.id)
-                        pendingDeleteSession = null
+                ProvideLocalizedDialogContext {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteSession(session.id)
+                            pendingDeleteSession = null
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.common_delete),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = AlertRed
+                        )
                     }
-                ) {
-                    Text(
-                        text = "Delete",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = AlertRed
-                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDeleteSession = null }) {
-                    Text(
-                        text = "Cancel",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = InkSecondary
-                    )
+                ProvideLocalizedDialogContext {
+                    TextButton(onClick = { pendingDeleteSession = null }) {
+                        Text(
+                            text = stringResource(R.string.common_cancel),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = InkSecondary
+                        )
+                    }
                 }
             }
         )
@@ -220,24 +239,40 @@ fun SessionsScreen(
 }
 
 @Composable
-private fun SessionsHeader() {
-    Column(
+private fun SessionsHeader(
+    currentLanguage: AppLanguage,
+    onSelectLanguage: (AppLanguage) -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MonasticMaroon)
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 20.dp, vertical = 20.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "DhammaMeditate",
-            style = MaterialTheme.typography.headlineMedium,
-            color = PureWhite
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = "Meditation Sessions",
-            style = MaterialTheme.typography.bodyMedium,
-            color = WhiteMuted
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium,
+                color = PureWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.sessions_header_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WhiteMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        LanguageTogglePill(
+            currentLanguage = currentLanguage,
+            onSelectLanguage = onSelectLanguage
         )
     }
 }
@@ -272,17 +307,19 @@ private fun EmptySessionsCard(hasLibraryTracks: Boolean) {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "No meditation sessions yet",
+                text = stringResource(R.string.sessions_empty_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = InkPrimary
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = if (hasLibraryTracks) {
-                    "Combine an optional untimed Intro Queue with a timed Main Queue and a saved countdown. Tap New Session below to create your first session."
-                } else {
-                    "Build reusable two-zone sessions with an optional untimed Intro Queue and a timed Main Queue. Import audio in the Library tab first, then tap New Session."
-                },
+                text = stringResource(
+                    if (hasLibraryTracks) {
+                        R.string.sessions_empty_body_has_tracks
+                    } else {
+                        R.string.sessions_empty_body_no_tracks
+                    }
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = InkSecondary
             )
@@ -299,14 +336,20 @@ private fun SessionCard(
     onDeleteClick: () -> Unit
 ) {
     val introSummary = if (session.introItems.isEmpty()) {
-        "No Intro"
+        stringResource(R.string.sessions_intro_none)
     } else {
-        "Intro: ${session.introItems.size} ${trackWord(session.introItems.size)} (${TimerValidation.formatDuration(session.introTotalDurationMs)})"
+        stringResource(
+            R.string.sessions_intro_summary,
+            TimerValidation.formatDuration(session.introTotalDurationMs)
+        )
     }
     val mainSummary = if (session.mainItems.isEmpty()) {
-        "Main: 0 tracks"
+        stringResource(R.string.sessions_main_empty)
     } else {
-        "Main: ${session.mainItems.size} ${trackWord(session.mainItems.size)} (${TimerValidation.formatDuration(session.mainTotalDurationMs)})"
+        stringResource(
+            R.string.sessions_main_summary,
+            TimerValidation.formatDuration(session.mainTotalDurationMs)
+        )
     }
 
     Surface(
@@ -351,7 +394,7 @@ private fun SessionCard(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,
-                        contentDescription = "Edit ${session.name}",
+                        contentDescription = stringResource(R.string.sessions_edit_cd, session.name),
                         tint = InkSecondary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -362,7 +405,7 @@ private fun SessionCard(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.DeleteOutline,
-                        contentDescription = "Delete ${session.name}",
+                        contentDescription = stringResource(R.string.sessions_delete_cd, session.name),
                         tint = InkSecondary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -378,7 +421,7 @@ private fun SessionCard(
                     border = BorderStroke(1.dp, AlertRed)
                 ) {
                     Text(
-                        text = "Needs Main Track",
+                        text = stringResource(R.string.sessions_needs_main_badge),
                         style = MaterialTheme.typography.labelMedium,
                         color = AlertRed,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -391,7 +434,10 @@ private fun SessionCard(
                     border = BorderStroke(1.dp, Saffron)
                 ) {
                     Text(
-                        text = "Timer ${TimerValidation.formatDuration(session.targetDurationMs)}",
+                        text = stringResource(
+                            R.string.sessions_timer_badge,
+                            TimerValidation.formatDuration(session.targetDurationMs)
+                        ),
                         style = MaterialTheme.typography.labelMedium,
                         color = MonasticMaroon,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -401,5 +447,3 @@ private fun SessionCard(
         }
     }
 }
-
-private fun trackWord(count: Int): String = if (count == 1) "track" else "tracks"

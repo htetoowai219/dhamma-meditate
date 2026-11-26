@@ -21,11 +21,21 @@ data class DistractionSnapshot(
     val ringerState: RingerState
 )
 
+enum class DistractionStatusKind {
+    AIRPLANE_ON,
+    DND_ACTIVE,
+    RINGER_SILENT,
+    RINGER_NORMAL,
+    RINGER_VIBRATE,
+    UNKNOWN_UNSILENCED
+}
+
 data class DistractionEvaluation(
     val snapshot: DistractionSnapshot,
     val isReady: Boolean,
     val statusSummary: String,
-    val guidanceText: String
+    val guidanceText: String,
+    val statusKind: DistractionStatusKind = DistractionStatusKind.UNKNOWN_UNSILENCED
 )
 
 object DistractionPolicy {
@@ -40,42 +50,48 @@ object DistractionPolicy {
                 snapshot = snapshot,
                 isReady = true,
                 statusSummary = "Airplane Mode is on. Ready for quiet meditation.",
-                guidanceText = GUIDANCE_READY
+                guidanceText = GUIDANCE_READY,
+                statusKind = DistractionStatusKind.AIRPLANE_ON
             )
 
             snapshot.isDndActive -> DistractionEvaluation(
                 snapshot = snapshot,
                 isReady = true,
                 statusSummary = "Do Not Disturb is active. Ready for quiet meditation.",
-                guidanceText = GUIDANCE_READY
+                guidanceText = GUIDANCE_READY,
+                statusKind = DistractionStatusKind.DND_ACTIVE
             )
 
             snapshot.ringerState == RingerState.SILENT -> DistractionEvaluation(
                 snapshot = snapshot,
                 isReady = true,
                 statusSummary = "Phone is silenced. Ready for quiet meditation.",
-                guidanceText = GUIDANCE_READY
+                guidanceText = GUIDANCE_READY,
+                statusKind = DistractionStatusKind.RINGER_SILENT
             )
 
             snapshot.ringerState == RingerState.NORMAL -> DistractionEvaluation(
                 snapshot = snapshot,
                 isReady = false,
                 statusSummary = "Airplane Mode is off and your ringer is on.",
-                guidanceText = GUIDANCE_NOT_READY
+                guidanceText = GUIDANCE_NOT_READY,
+                statusKind = DistractionStatusKind.RINGER_NORMAL
             )
 
             snapshot.ringerState == RingerState.VIBRATE -> DistractionEvaluation(
                 snapshot = snapshot,
                 isReady = false,
                 statusSummary = "Airplane Mode is off and vibration is on.",
-                guidanceText = GUIDANCE_NOT_READY
+                guidanceText = GUIDANCE_NOT_READY,
+                statusKind = DistractionStatusKind.RINGER_VIBRATE
             )
 
             else -> DistractionEvaluation(
                 snapshot = snapshot,
                 isReady = false,
                 statusSummary = "Airplane Mode is off and alerts may interrupt your session.",
-                guidanceText = GUIDANCE_NOT_READY
+                guidanceText = GUIDANCE_NOT_READY,
+                statusKind = DistractionStatusKind.UNKNOWN_UNSILENCED
             )
         }
     }

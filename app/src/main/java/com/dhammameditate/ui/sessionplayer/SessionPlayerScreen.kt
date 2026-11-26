@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,11 +46,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dhammameditate.R
 import com.dhammameditate.data.repository.QueueTrackItem
 import com.dhammameditate.data.repository.SessionWithQueues
 import com.dhammameditate.playback.DistractionChecker
@@ -138,13 +141,13 @@ fun SessionPlayerScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Session unavailable",
+                                text = stringResource(R.string.session_player_unavailable_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = InkPrimary
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "This meditation session no longer exists.",
+                                text = stringResource(R.string.session_player_unavailable_body),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = InkSecondary,
                                 textAlign = TextAlign.Center
@@ -159,7 +162,10 @@ fun SessionPlayerScreen(
                                 ),
                                 elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
                             ) {
-                                Text("Back to Sessions", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    text = stringResource(R.string.editor_back_to_sessions),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
                             }
                         }
                     }
@@ -288,13 +294,13 @@ private fun SessionPlayerTopBar(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = "Back to Sessions",
+                contentDescription = stringResource(R.string.editor_back_to_sessions),
                 tint = PureWhite
             )
         }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "Meditation Session",
+            text = stringResource(R.string.session_player_title),
             style = MaterialTheme.typography.titleMedium,
             color = PureWhite,
             modifier = Modifier.weight(1f)
@@ -305,7 +311,7 @@ private fun SessionPlayerTopBar(
         ) {
             Icon(
                 imageVector = Icons.Outlined.Edit,
-                contentDescription = "Edit session",
+                contentDescription = stringResource(R.string.session_player_edit_cd),
                 tint = if (canEdit) PureWhite else WhiteMuted.copy(alpha = 0.35f)
             )
         }
@@ -372,14 +378,14 @@ private fun NeedsMainTrackBanner(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Needs Main Track before playback can start.",
+                text = stringResource(R.string.session_player_needs_main_banner),
                 style = MaterialTheme.typography.bodySmall,
                 color = AlertRed,
                 modifier = Modifier.weight(1f)
             )
             TextButton(onClick = onEditSession) {
                 Text(
-                    text = "Edit Session",
+                    text = stringResource(R.string.editor_title_edit),
                     style = MaterialTheme.typography.labelMedium,
                     color = MonasticMaroon
                 )
@@ -415,7 +421,7 @@ private fun SessionErrorBanner(
             IconButton(onClick = onDismiss) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = "Dismiss playback error",
+                    contentDescription = stringResource(R.string.player_dismiss_error_cd),
                     tint = AlertRed,
                     modifier = Modifier.size(18.dp)
                 )
@@ -442,7 +448,10 @@ private fun ReadOnlyQueueOverviewCard(
         ) {
             if (session.introItems.isNotEmpty()) {
                 Text(
-                    text = "INTRO QUEUE · UNTIMED (${TimerValidation.formatDuration(session.introTotalDurationMs)})",
+                    text = stringResource(
+                        R.string.session_player_queue_intro_header,
+                        TimerValidation.formatDuration(session.introTotalDurationMs)
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = WhiteMuted
                 )
@@ -462,14 +471,17 @@ private fun ReadOnlyQueueOverviewCard(
             }
 
             Text(
-                text = "MAIN QUEUE · COMBINED ${TimerValidation.formatDuration(session.mainTotalDurationMs)}",
+                text = stringResource(
+                    R.string.session_player_queue_main_header,
+                    TimerValidation.formatDuration(session.mainTotalDurationMs)
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = WhiteMuted
             )
             Spacer(modifier = Modifier.height(8.dp))
             if (session.mainItems.isEmpty()) {
                 Text(
-                    text = "No Main tracks configured.",
+                    text = stringResource(R.string.session_player_queue_main_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = WhiteMuted
                 )
@@ -560,7 +572,7 @@ private fun SessionTransportControls(
                         .height(54.dp)
                 ) {
                     Text(
-                        text = "Start Session",
+                        text = stringResource(R.string.transport_start_session),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -580,7 +592,7 @@ private fun SessionTransportControls(
                         .height(54.dp)
                 ) {
                     Text(
-                        text = "Pause",
+                        text = stringResource(R.string.transport_pause),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -605,7 +617,7 @@ private fun SessionTransportControls(
                         .height(54.dp)
                 ) {
                     Text(
-                        text = "Continue",
+                        text = stringResource(R.string.transport_continue),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -638,10 +650,10 @@ private fun SecondaryTransportRow(
                     containerColor = MaroonSurfaceSubtle,
                     contentColor = PureWhite
                 ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .height(50.dp)
+                    .heightIn(min = 50.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.SkipNext,
@@ -650,9 +662,10 @@ private fun SecondaryTransportRow(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Skip to Main",
+                    text = stringResource(R.string.transport_skip_to_main),
                     style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -663,15 +676,16 @@ private fun SecondaryTransportRow(
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = PureWhite
                 ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .height(50.dp)
+                    .heightIn(min = 50.dp)
             ) {
                 Text(
-                    text = "Stop & Reset",
+                    text = stringResource(R.string.action_stop_reset),
                     style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -686,43 +700,56 @@ private fun SecondaryTransportRow(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
+                .heightIn(min = 50.dp)
         ) {
             Text(
-                text = "Stop & Reset",
+                text = stringResource(R.string.action_stop_reset),
                 style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
     }
 }
 
+@Composable
 private fun zonePillLabel(
     uiState: SessionPlayerUiState,
     session: SessionWithQueues
 ): String = when (uiState.status) {
     PlaybackStatus.INTRO_PLAYING, PlaybackStatus.INTRO_PAUSED ->
-        "INTRO · Track ${uiState.zoneTrackNumber} of ${uiState.zoneTrackCount} · Timer paused"
+        stringResource(
+            R.string.session_player_pill_intro,
+            uiState.zoneTrackNumber.toString(),
+            uiState.zoneTrackCount.toString()
+        )
 
     PlaybackStatus.PLAYING, PlaybackStatus.PAUSED, PlaybackStatus.FADING ->
-        "MAIN · Track ${uiState.zoneTrackNumber} of ${uiState.zoneTrackCount}"
+        stringResource(
+            R.string.session_player_pill_main,
+            uiState.zoneTrackNumber.toString(),
+            uiState.zoneTrackCount.toString()
+        )
 
-    PlaybackStatus.COMPLETED -> "COMPLETED · Fresh 00:00 on next start"
+    PlaybackStatus.COMPLETED -> stringResource(R.string.session_player_pill_completed)
 
     PlaybackStatus.IDLE -> if (session.introItems.isNotEmpty()) {
-        "READY · Intro + Main"
+        stringResource(R.string.session_player_pill_ready_intro_main)
     } else {
-        "READY · Main only"
+        stringResource(R.string.session_player_pill_ready_main_only)
     }
 }
 
-private fun sessionStatusSubtitle(status: PlaybackStatus): String = when (status) {
-    PlaybackStatus.IDLE -> "Ready"
-    PlaybackStatus.INTRO_PLAYING -> "Playing Intro · Countdown paused"
-    PlaybackStatus.INTRO_PAUSED -> "Intro paused · Countdown paused"
-    PlaybackStatus.PLAYING -> "Playing Main Queue"
-    PlaybackStatus.PAUSED -> "Paused"
-    PlaybackStatus.FADING -> "Fading out..."
-    PlaybackStatus.COMPLETED -> "Session complete"
-}
+@Composable
+private fun sessionStatusSubtitle(status: PlaybackStatus): String = stringResource(
+    when (status) {
+        PlaybackStatus.IDLE -> R.string.status_ready
+        PlaybackStatus.INTRO_PLAYING -> R.string.status_intro_playing_session
+        PlaybackStatus.INTRO_PAUSED -> R.string.status_intro_paused_session
+        PlaybackStatus.PLAYING -> R.string.status_playing_main
+        PlaybackStatus.PAUSED -> R.string.status_paused
+        PlaybackStatus.FADING -> R.string.status_fading
+        PlaybackStatus.COMPLETED -> R.string.status_completed
+    }
+)

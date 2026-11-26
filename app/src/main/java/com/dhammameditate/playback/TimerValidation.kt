@@ -2,10 +2,21 @@ package com.dhammameditate.playback
 
 import java.util.Locale
 
+enum class TimerCapScope {
+    TRACK,
+    MAIN_QUEUE
+}
+
+data class TimerCapNotice(
+    val scope: TimerCapScope,
+    val cappedDurationMs: Long
+)
+
 data class CappedDurationResult(
     val durationMs: Long,
     val wasCapped: Boolean,
-    val noticeMessage: String?
+    val noticeMessage: String?,
+    val capNotice: TimerCapNotice? = null
 )
 
 object TimerValidation {
@@ -52,10 +63,12 @@ object TimerValidation {
         }
         val minBound = minOf(MIN_DURATION_MS, maxDurationMs)
         if (requestedMs > maxDurationMs) {
+            val scope = if (scopeLabel == SCOPE_MAIN_QUEUE) TimerCapScope.MAIN_QUEUE else TimerCapScope.TRACK
             return CappedDurationResult(
                 durationMs = maxDurationMs,
                 wasCapped = true,
-                noticeMessage = "Adjusted to $scopeLabel (${formatDuration(maxDurationMs)})"
+                noticeMessage = "Adjusted to $scopeLabel (${formatDuration(maxDurationMs)})",
+                capNotice = TimerCapNotice(scope = scope, cappedDurationMs = maxDurationMs)
             )
         }
         return CappedDurationResult(
@@ -88,7 +101,11 @@ object TimerValidation {
             return CappedDurationResult(
                 durationMs = newMainTotalMs,
                 wasCapped = true,
-                noticeMessage = "Adjusted to $SCOPE_MAIN_QUEUE (${formatDuration(newMainTotalMs)})"
+                noticeMessage = "Adjusted to $SCOPE_MAIN_QUEUE (${formatDuration(newMainTotalMs)})",
+                capNotice = TimerCapNotice(
+                    scope = TimerCapScope.MAIN_QUEUE,
+                    cappedDurationMs = newMainTotalMs
+                )
             )
         }
         return CappedDurationResult(

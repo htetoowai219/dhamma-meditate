@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.annotation.OptIn
+import androidx.annotation.StringRes
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -24,6 +25,7 @@ import com.dhammameditate.DhammaMeditateApp
 import com.dhammameditate.MainActivity
 import com.dhammameditate.R
 import com.dhammameditate.data.local.QueueZone
+import com.dhammameditate.data.preferences.AppLanguageStore
 import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
 import com.google.common.util.concurrent.Futures
@@ -34,6 +36,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,8 +57,10 @@ class MeditationPlaybackService : MediaSessionService() {
     private lateinit var trackRepository: TrackRepository
     private lateinit var sessionRepository: SessionRepository
     private lateinit var stateStore: PlaybackStateStore
+    private lateinit var appLanguageStore: AppLanguageStore
     private lateinit var exoPlayer: ExoPlayer
     private lateinit var restrictedPlayer: RestrictedMeditationPlayer
+    private lateinit var stopResetButton: CommandButton
     private var mediaSession: MediaSession? = null
 
     private val timerEngine = MeditationTimerEngine(clockMs = { SystemClock.elapsedRealtime() })
@@ -187,10 +192,19 @@ class MeditationPlaybackService : MediaSessionService() {
             val currentEntry = activeQueueEntries.getOrNull(currentQueueIndex)
             publishSnapshot(
                 tick = resetTick,
-                errorMessage = "Audio playback failed: file may be missing or unreadable.",
+                errorMessage = localizedString(R.string.playback_error_failed),
                 errorTrackId = if (activeSessionId == null) currentEntry?.trackId else null,
                 errorSessionId = activeSessionId
             )
+        }
+    }
+
+    private fun localizedString(@StringRes resId: Int, vararg args: Any): String {
+        val localized = appLanguageStore.localizedContext(this)
+        return if (args.isEmpty()) {
+            localized.getString(resId)
+        } else {
+            localized.getString(resId, *args)
         }
     }
 
@@ -200,6 +214,7 @@ class MeditationPlaybackService : MediaSessionService() {
         trackRepository = container.trackRepository
         sessionRepository = container.sessionRepository
         stateStore = container.playbackStateStore
+        appLanguageStore = container.appLanguageStore
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -220,11 +235,7 @@ class MeditationPlaybackService : MediaSessionService() {
             onStopRequested = { stopAndReset(clearSelection = false) }
         )
 
-        val stopResetButton = CommandButton.Builder(CommandButton.ICON_STOP)
-            .setDisplayName(getString(R.string.action_stop_reset))
-            .setSessionCommand(STOP_RESET_COMMAND)
-            .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
-            .build()
+        stopResetButton = buildStopResetButton()
 
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -275,6 +286,58 @@ class MeditationPlaybackService : MediaSessionService() {
             .build()
         mediaSession = session
         addSession(session)
+
+        serviceScope.launch {
+            appLanguageStore.language.drop(1).collect {
+                refreshLocalizedMediaMetadata()
+            }
+        }
+    }
+
+    private fun buildStopResetButton(): CommandButton {
+        return CommandButton.Builder(CommandButton.ICON_STOP)
+            .setDisplayName(localizedString(R.string.action_stop_reset))
+            .setSessionCommand(STOP_RESET_COMMAND)
+            .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
+            .build()
+    }
+
+    private fun refreshLocalizedMediaMetadata() {
+        stopResetButton = buildStopResetButton()
+        mediaSession?.setMediaButtonPreferences(listOf(stopResetButton))
+
+        if (activeQueueEntries.isEmpty() || exoPlayer.mediaItemCount != activeQueueEntries.size) {
+            return
+        }
+        val sessionName = activeSessionName
+        withInternalPlayerChange {
+            activeQueueEntries.forEachIndexed { index, entry ->
+                val subtitle = if (sessionName != null) {
+                    val resId = if (entry.zone == QueueZone.INTRO) {
+                        R.string.notification_session_intro
+                    } else {
+                        R.string.notification_session_main
+                    }
+                    localizedString(
+                        resId,
+                        sessionName,
+                        entry.zoneTrackNumber.toString(),
+                        entry.zoneTrackCount.toString()
+                    )
+                } else {
+                    localizedString(R.string.notification_subtitle)
+                }
+                val existingItem = exoPlayer.getMediaItemAt(index)
+                val updatedMetadata = existingItem.mediaMetadata.buildUpon()
+                    .setSubtitle(subtitle)
+                    .setArtist(subtitle)
+                    .build()
+                val updatedItem = existingItem.buildUpon()
+                    .setMediaMetadata(updatedMetadata)
+                    .build()
+                exoPlayer.replaceMediaItem(index, updatedItem)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -396,7 +459,7 @@ class MeditationPlaybackService : MediaSessionService() {
                 val track = trackRepository.getTrack(trackId)
                 if (track == null) {
                     publishError(
-                        message = "Selected track could not be found in your library.",
+                        message = localizedString(R.string.playback_error_track_not_found),
                         errorTrackId = trackId,
                         errorSessionId = null
                     )
@@ -409,7 +472,7 @@ class MeditationPlaybackService : MediaSessionService() {
                 }
                 if (!isReadable) {
                     publishError(
-                        message = "Local audio file is missing or unreadable. Try re-importing it.",
+                        message = localizedString(R.string.playback_error_file_missing),
                         errorTrackId = trackId,
                         errorSessionId = null
                     )
@@ -419,7 +482,7 @@ class MeditationPlaybackService : MediaSessionService() {
                 val capped = TimerValidation.capDurationMs(requestedTargetDurationMs, track.durationMs)
                 if (capped.durationMs <= 0L) {
                     publishError(
-                        message = "Selected timer duration is invalid.",
+                        message = localizedString(R.string.playback_error_invalid_timer),
                         errorTrackId = trackId,
                         errorSessionId = null
                     )
@@ -446,7 +509,7 @@ class MeditationPlaybackService : MediaSessionService() {
                 currentQueueIndex = 0
                 activeTargetDurationMs = capped.durationMs
 
-                val subtitle = getString(R.string.notification_subtitle)
+                val subtitle = localizedString(R.string.notification_subtitle)
                 val metadata = MediaMetadata.Builder()
                     .setTitle(track.title)
                     .setSubtitle(subtitle)
@@ -496,7 +559,7 @@ class MeditationPlaybackService : MediaSessionService() {
                 val session = sessionRepository.getSession(sessionId)
                 if (session == null) {
                     publishError(
-                        message = "Selected session could not be found.",
+                        message = localizedString(R.string.playback_error_session_not_found),
                         errorTrackId = null,
                         errorSessionId = sessionId
                     )
@@ -505,7 +568,7 @@ class MeditationPlaybackService : MediaSessionService() {
 
                 if (session.mainItems.isEmpty()) {
                     publishError(
-                        message = "This session needs at least one Main Queue track before playing.",
+                        message = localizedString(R.string.playback_error_session_needs_main),
                         errorTrackId = null,
                         errorSessionId = sessionId
                     )
@@ -519,7 +582,7 @@ class MeditationPlaybackService : MediaSessionService() {
                 )
                 if (capped.durationMs <= 0L) {
                     publishError(
-                        message = "Session timer duration is invalid. Edit the session to set a timer.",
+                        message = localizedString(R.string.playback_error_session_invalid_timer),
                         errorTrackId = null,
                         errorSessionId = sessionId
                     )
@@ -548,14 +611,22 @@ class MeditationPlaybackService : MediaSessionService() {
                     val (item, file, isReadable) = resolved
                     if (!isReadable) {
                         publishError(
-                            message = "Missing or unreadable Intro track: \"${item.track.title}\". Re-import it or edit the session.",
+                            message = localizedString(
+                                R.string.playback_error_missing_intro_track,
+                                item.track.title
+                            ),
                             errorTrackId = null,
                             errorSessionId = sessionId
                         )
                         return@launch
                     }
                     val trackNum = index + 1
-                    val subtitle = "${session.name} · Intro ($trackNum/$introCount)"
+                    val subtitle = localizedString(
+                        R.string.notification_session_intro,
+                        session.name,
+                        trackNum.toString(),
+                        introCount.toString()
+                    )
                     val metadata = MediaMetadata.Builder()
                         .setTitle(item.track.title)
                         .setSubtitle(subtitle)
@@ -583,14 +654,22 @@ class MeditationPlaybackService : MediaSessionService() {
                     val (item, file, isReadable) = resolved
                     if (!isReadable) {
                         publishError(
-                            message = "Missing or unreadable Main track: \"${item.track.title}\". Re-import it or edit the session.",
+                            message = localizedString(
+                                R.string.playback_error_missing_main_track,
+                                item.track.title
+                            ),
                             errorTrackId = null,
                             errorSessionId = sessionId
                         )
                         return@launch
                     }
                     val trackNum = index + 1
-                    val subtitle = "${session.name} · Main ($trackNum/$mainCount)"
+                    val subtitle = localizedString(
+                        R.string.notification_session_main,
+                        session.name,
+                        trackNum.toString(),
+                        mainCount.toString()
+                    )
                     val metadata = MediaMetadata.Builder()
                         .setTitle(item.track.title)
                         .setSubtitle(subtitle)

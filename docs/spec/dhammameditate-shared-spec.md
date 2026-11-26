@@ -1,6 +1,6 @@
 # DhammaMeditate — Normative Cross-Platform Behavior Specification
 
-- **Version:** 1.1 (Android v0.2.0 Reference Parity)
+- **Version:** 1.2 (Android v0.3.0 Reference Parity)
 - **Status:** Normative Source of Truth
 - **Reference Implementation:** Native Android (Kotlin, Jetpack Compose, Media3 ExoPlayer + MediaSessionService, Room SQLite v2)
 - **Target Parity Platforms:** Android (reference) & Native iOS (Swift, SwiftUI, AVFoundation + `AVAudioSession` + `MPRemoteCommandCenter` + SQLite/GRDB/SwiftData)
@@ -26,7 +26,6 @@ This document defines the exact, unambiguous product behavior, data contracts, s
 - Cloud sync, streaming, accounts, or telemetry.
 - User-configurable fade-out duration (fixed to `10,000 ms` exponential decay).
 - Video-to-audio extraction or DRM-protected audio playback.
-- Full bilingual UI localization (v1 uses English UI labels with full Burmese Unicode rendering for track titles and session names).
 
 ---
 
@@ -436,3 +435,52 @@ Burmese Unicode script (e.g., `တရားတော်`, `မေတ္တာဘ
 | `bodySmall` | Normal | `13sp` | `19sp` | `1.46x` | Durations, metadata, cap notices, guidance copy |
 | `labelLarge` | SemiBold | `15sp` | `22sp` | `1.47x` | Buttons, active track subtitle |
 | `labelMedium` | Medium | `13sp` | `19sp` | `1.46x` | Chips, zone pills, nav labels, badges |
+
+---
+
+## 10. Bilingual Localization (English & Burmese `မြန်မာ`)
+
+### 10.1 Supported Languages & First-Launch Default
+- **Supported locales:** English (`en`) and Burmese (`my`).
+- **First-launch resolution (when no user preference is saved):**
+  - If the device system language code is `"my"` (e.g., `my`, `my-MM`), initialize to **Burmese (`my`)**.
+  - Otherwise, initialize to **English (`en`)**.
+- **Persistence:**
+  - **Android:** `SharedPreferences` (`"dhamma_meditate_prefs"`, key `"app_language_tag"` = `"en"` | `"my"`).
+  - **iOS:** `UserDefaults.standard` (same key `"app_language_tag"` = `"en"` | `"my"`).
+  - Once explicitly selected by the user, the saved preference overrides the device locale across app restarts.
+
+### 10.2 In-App Switcher & Live Switching Contract
+- **Placement:** Compact flat segmented toggle pill (`EN` | `မြန်မာ`) in the top-right of the `Sessions` and `Library` Monastic Maroon headers. The toggle labels always use native autonyms (`EN` and `မြန်မာ`).
+- **Instant, Playback-Safe Switching:** Toggling `EN` ↔ `မြန်မာ` MUST update all visible UI strings immediately without restarting the app or interrupting active audio playback / countdown ticks.
+  - **Android:** `CompositionLocalProvider(LocalContext provides localizedContext, LocalConfiguration provides localizedContext.resources.configuration)` at the Compose root; `MeditationPlaybackService` resolves error/notification strings from `AppLanguageStore.localizedContext(this)`.
+  - **iOS:** SwiftUI `.environment(\.locale, selectedLocale)` (or bundle-backed `Localizable.xcstrings` lookup driven by an `Observable` language store) so all views re-render live without recreating the audio engine.
+
+### 10.3 Western Numerals & Burmese Layout Invariants
+- **Western Numerals (`0-9`):** In Burmese mode, all countdown timers (`00:00`, `45:00`), track durations, preset numbers (`10 မိနစ်`), and counts MUST continue displaying Western ASCII digits (`0-9`) using `Locale.US` (Android) / `Locale(identifier: "en_US_POSIX")` (iOS) — never localized Burmese digits (`၀-၉`).
+- **Session Card Duration-Only Summary:** Session cards display duration-only summaries without track counts:
+  - English: `Intro: 05:00 · Main: 45:00` (or `No Intro` / `Main: None`).
+  - Burmese: `ပရိကံ : 05:00 · ကမ္မဋ္ဌာန်းတရား : 45:00` (or `ပရိကံတရား မပါဝင်ပါ` / `ကမ္မဋ္ဌာန်းတရား : မရှိပါ`).
+- **Tight Controls:** Side-by-side buttons (such as the 50/50 `Skip to Main` | `Stop & Reset` row during Intro playback) MUST allow up to 2 centered lines (`heightIn(min = 50dp)` / flexible min-height in SwiftUI) so Burmese labels never clip on narrow screens.
+
+### 10.4 Canonical English ↔ Burmese Terminology & String Catalog
+The complete 170-key English and Burmese string catalog lives in:
+- `app/src/main/res/values/strings.xml`
+- `app/src/main/res/values-my/strings.xml`
+
+The iOS port MUST import these exact 170 keys and Burmese strings verbatim into `Localizable.xcstrings`. Core domain terms:
+
+| Concept | English | Canonical Burmese (`my`) |
+|---|---|---|
+| App Name | `DhammaMeditate` | `တရားဖော်` |
+| Sessions Tab / Header | `Sessions` / `Meditation Sessions` | `တရားချိန်များ` |
+| Library Tab / Header | `Library` / `Offline Audio Library` | `တရားများ` / `သိမ်းဆည်းထားသောတရားများ` |
+| Intro Queue (Untimed) | `Intro Queue` / `Intro` | `ပရိကံတရား` / `ပရိကံ` |
+| Main Queue (Timed) | `Main Queue` / `Main` | `ကမ္မဋ္ဌာန်းတရား` / `ကမ္မဋ္ဌာန်း` |
+| Meditation Timer | `Meditation Timer` | `တရားထိုင်ကြာချိန်` |
+| Start / Pause / Continue | `Start Session` / `Pause` / `Continue` | `စတင်မည်` / `ခေတ္တရပ်မည်` / `ဆက်ဖွင့်မည်` |
+| Skip to Main | `Skip to Main` | `ကမ္မဋ္ဌာန်းသို့ ကျော်မည်` |
+| Stop & Reset | `Stop & Reset` | `ရပ်၍ အစမှပြန်စမည်` |
+| Save / Cancel / Delete | `Save` / `Cancel` / `Delete` | `သိမ်းဆည်းမည်` / `မလုပ်ပါ` / `ဖျက်မည်` |
+| Preset Minutes / Full | `{1}m` / `Full` | `{1} မိနစ်` / `အပြည့်` |
+| Distraction Prompt | `Silence Distractions?` / `Continue anyway` | `အနှောင့်အယှက်များ ပိတ်ထားမည်လား?` / `ဆက်လက်စတင်မည်` |

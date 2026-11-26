@@ -3,12 +3,15 @@ package com.dhammameditate.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.dhammameditate.R
 import com.dhammameditate.data.local.TrackEntity
 import com.dhammameditate.data.repository.TrackRepository
 import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackSnapshot
 import com.dhammameditate.playback.PlaybackStatus
 import com.dhammameditate.playback.TimerValidation
+import com.dhammameditate.ui.common.UiText
+import com.dhammameditate.ui.common.toUiText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +26,7 @@ data class PlayerUiState(
     val selectedDurationMs: Long = 0L,
     val isFullSelected: Boolean = false,
     val customMinutesInput: String = "",
-    val capNotice: String? = null,
+    val capNotice: UiText? = null,
     val displayedRemainingMs: Long = 0L,
     val progressFraction: Float = 0f,
     val errorMessage: String? = null
@@ -47,7 +50,7 @@ private data class LocalSelectionState(
     val selectedDurationMs: Long = 0L,
     val isFullSelected: Boolean = false,
     val customMinutesInput: String = "",
-    val capNotice: String? = null
+    val capNotice: UiText? = null
 )
 
 class PlayerViewModel(
@@ -187,7 +190,7 @@ class PlayerViewModel(
         if (state.isTimerLocked) return
 
         resetIfCompleted(state.status)
-        val digitsOnly = rawInput.filter { it.isDigit() }.take(4)
+        val digitsOnly = rawInput.filter { it in '0'..'9' }.take(4)
         if (digitsOnly.isEmpty()) {
             localState.value = localState.value.copy(
                 customMinutesInput = "",
@@ -200,7 +203,7 @@ class PlayerViewModel(
         if (parsed < 1) {
             localState.value = localState.value.copy(
                 customMinutesInput = digitsOnly,
-                capNotice = "Enter at least 1 minute"
+                capNotice = UiText.Resource(R.string.timer_error_min_one_minute)
             )
             return
         }
@@ -210,7 +213,7 @@ class PlayerViewModel(
             selectedDurationMs = capped.durationMs,
             isFullSelected = capped.wasCapped,
             customMinutesInput = digitsOnly,
-            capNotice = capped.noticeMessage
+            capNotice = capped.capNotice?.toUiText()
         )
     }
 
@@ -229,7 +232,7 @@ class PlayerViewModel(
 
         localState.value = localState.value.copy(
             selectedDurationMs = capped.durationMs,
-            capNotice = capped.noticeMessage
+            capNotice = capped.capNotice?.toUiText()
         )
         playbackClient.startSession(
             trackId = track.id,

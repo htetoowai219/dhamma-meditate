@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -46,14 +47,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dhammameditate.R
 import com.dhammameditate.playback.DistractionChecker
 import com.dhammameditate.playback.PlaybackStatus
 import com.dhammameditate.playback.TimerValidation
+import com.dhammameditate.ui.common.UiText
+import com.dhammameditate.ui.common.asString
 import com.dhammameditate.ui.common.rememberSessionStartLauncher
 import com.dhammameditate.ui.theme.AlertRed
 import com.dhammameditate.ui.theme.AlertSurface
@@ -132,13 +137,13 @@ fun PlayerScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Track unavailable",
+                                text = stringResource(R.string.player_track_unavailable_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = InkPrimary
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "This audio file is no longer in your offline library.",
+                                text = stringResource(R.string.player_track_unavailable_body),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = InkSecondary,
                                 textAlign = TextAlign.Center
@@ -153,7 +158,10 @@ fun PlayerScreen(
                                 ),
                                 elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
                             ) {
-                                Text("Back to Library", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    text = stringResource(R.string.player_back_to_library),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
                             }
                         }
                     }
@@ -183,7 +191,10 @@ fun PlayerScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "Track length · ${TimerValidation.formatDuration(track.durationMs)}",
+                        text = stringResource(
+                            R.string.player_track_length,
+                            TimerValidation.formatDuration(track.durationMs)
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = WhiteMuted
                     )
@@ -265,13 +276,13 @@ private fun PlayerTopBar(onBack: () -> Unit) {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = "Back to Library",
+                contentDescription = stringResource(R.string.player_back_to_library),
                 tint = PureWhite
             )
         }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "Timed Session",
+            text = stringResource(R.string.player_title),
             style = MaterialTheme.typography.titleMedium,
             color = PureWhite
         )
@@ -328,7 +339,7 @@ private fun PlayerErrorBanner(
             IconButton(onClick = onDismiss) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = "Dismiss playback error",
+                    contentDescription = stringResource(R.string.player_dismiss_error_cd),
                     tint = AlertRed,
                     modifier = Modifier.size(18.dp)
                 )
@@ -343,7 +354,7 @@ private fun TimerSelectorCard(
     selectedDurationMs: Long,
     isFullSelected: Boolean,
     customMinutesInput: String,
-    capNotice: String?,
+    capNotice: UiText?,
     isLocked: Boolean,
     onSelectPreset: (Int) -> Unit,
     onSelectFull: () -> Unit,
@@ -368,13 +379,15 @@ private fun TimerSelectorCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Session Duration",
+                    text = stringResource(R.string.player_session_duration),
                     style = MaterialTheme.typography.titleMedium,
-                    color = InkPrimary
+                    color = InkPrimary,
+                    modifier = Modifier.weight(1f)
                 )
                 if (isLocked) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Locked while active",
+                        text = stringResource(R.string.player_locked_while_active),
                         style = MaterialTheme.typography.bodySmall,
                         color = InkSecondary
                     )
@@ -394,7 +407,7 @@ private fun TimerSelectorCard(
                         customMinutesInput.isEmpty() &&
                         selectedDurationMs == minutes.toLong() * 60_000L
                     DurationPresetChip(
-                        label = "${minutes}m",
+                        label = stringResource(R.string.timer_preset_minutes, minutes.toString()),
                         selected = selected,
                         enabled = enabled,
                         onClick = { onSelectPreset(minutes) },
@@ -416,7 +429,7 @@ private fun TimerSelectorCard(
                         customMinutesInput.isEmpty() &&
                         selectedDurationMs == minutes.toLong() * 60_000L
                     DurationPresetChip(
-                        label = "${minutes}m",
+                        label = stringResource(R.string.timer_preset_minutes, minutes.toString()),
                         selected = selected,
                         enabled = enabled,
                         onClick = { onSelectPreset(minutes) },
@@ -424,7 +437,7 @@ private fun TimerSelectorCard(
                     )
                 }
                 DurationPresetChip(
-                    label = "Full",
+                    label = stringResource(R.string.timer_preset_full),
                     selected = isFullSelected && customMinutesInput.isEmpty(),
                     enabled = !isLocked,
                     onClick = onSelectFull,
@@ -441,7 +454,7 @@ private fun TimerSelectorCard(
                 singleLine = true,
                 label = {
                     Text(
-                        text = "Custom minutes (min 1)",
+                        text = stringResource(R.string.timer_custom_minutes_label),
                         style = MaterialTheme.typography.bodySmall
                     )
                 },
@@ -466,7 +479,7 @@ private fun TimerSelectorCard(
             if (capNotice != null) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = capNotice,
+                    text = capNotice.asString(),
                     style = MaterialTheme.typography.bodySmall,
                     color = AlertRed
                 )
@@ -506,11 +519,16 @@ private fun DurationPresetChip(
             .clip(RoundedCornerShape(12.dp))
             .clickable(enabled = enabled, onClick = onClick)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = textColor
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -548,7 +566,7 @@ private fun RestrictedTransportControls(
                         .height(54.dp)
                 ) {
                     Text(
-                        text = "Start Session",
+                        text = stringResource(R.string.transport_start_session),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -568,7 +586,7 @@ private fun RestrictedTransportControls(
                         .height(54.dp)
                 ) {
                     Text(
-                        text = "Pause",
+                        text = stringResource(R.string.transport_pause),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -581,11 +599,14 @@ private fun RestrictedTransportControls(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .heightIn(min = 50.dp)
                 ) {
                     Text(
-                        text = "Stop & Reset",
-                        style = MaterialTheme.typography.labelLarge
+                        text = stringResource(R.string.action_stop_reset),
+                        style = MaterialTheme.typography.labelLarge,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -604,7 +625,7 @@ private fun RestrictedTransportControls(
                         .height(54.dp)
                 ) {
                     Text(
-                        text = "Continue",
+                        text = stringResource(R.string.transport_continue),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -617,11 +638,14 @@ private fun RestrictedTransportControls(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .heightIn(min = 50.dp)
                 ) {
                     Text(
-                        text = "Stop & Reset",
-                        style = MaterialTheme.typography.labelLarge
+                        text = stringResource(R.string.action_stop_reset),
+                        style = MaterialTheme.typography.labelLarge,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -629,12 +653,15 @@ private fun RestrictedTransportControls(
     }
 }
 
-private fun statusLabel(status: PlaybackStatus): String = when (status) {
-    PlaybackStatus.IDLE -> "Ready"
-    PlaybackStatus.INTRO_PLAYING -> "Intro playing"
-    PlaybackStatus.INTRO_PAUSED -> "Intro paused"
-    PlaybackStatus.PLAYING -> "Playing"
-    PlaybackStatus.PAUSED -> "Paused"
-    PlaybackStatus.FADING -> "Fading out..."
-    PlaybackStatus.COMPLETED -> "Session complete"
-}
+@Composable
+private fun statusLabel(status: PlaybackStatus): String = stringResource(
+    when (status) {
+        PlaybackStatus.IDLE -> R.string.status_ready
+        PlaybackStatus.INTRO_PLAYING -> R.string.status_intro_playing_quick
+        PlaybackStatus.INTRO_PAUSED -> R.string.status_intro_paused_quick
+        PlaybackStatus.PLAYING -> R.string.status_playing
+        PlaybackStatus.PAUSED -> R.string.status_paused
+        PlaybackStatus.FADING -> R.string.status_fading
+        PlaybackStatus.COMPLETED -> R.string.status_completed
+    }
+)

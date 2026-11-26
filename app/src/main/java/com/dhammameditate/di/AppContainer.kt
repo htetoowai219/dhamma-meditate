@@ -3,6 +3,7 @@ package com.dhammameditate.di
 import android.content.Context
 import com.dhammameditate.data.importer.AudioFileImporter
 import com.dhammameditate.data.local.AppDatabase
+import com.dhammameditate.data.preferences.AppLanguageStore
 import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
 import com.dhammameditate.playback.AndroidDistractionChecker
@@ -44,5 +45,9 @@ class AppContainer(context: Context) {
 
     val distractionChecker: DistractionChecker by lazy {
         AndroidDistractionChecker(appContext)
+    }
+
+    val appLanguageStore: AppLanguageStore by lazy {
+        AppLanguageStore(appContext)
     }
 }

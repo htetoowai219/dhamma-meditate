@@ -9,6 +9,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -50,18 +52,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dhammameditate.R
 import com.dhammameditate.data.local.TrackEntity
+import com.dhammameditate.data.preferences.AppLanguage
 import com.dhammameditate.playback.TimerValidation
 import com.dhammameditate.ui.common.ActiveSessionBanner
+import com.dhammameditate.ui.common.LanguageTogglePill
+import com.dhammameditate.ui.common.ProvideLocalizedDialogContext
+import com.dhammameditate.ui.common.asString
 import com.dhammameditate.ui.theme.AlertRed
 import com.dhammameditate.ui.theme.AlertSurface
 import com.dhammameditate.ui.theme.CardSurface
@@ -78,6 +87,8 @@ import com.dhammameditate.ui.theme.WhiteMuted
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel,
+    currentLanguage: AppLanguage,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onOpenTrack: (String) -> Unit,
     onOpenActivePlayback: () -> Unit
 ) {
@@ -96,7 +107,10 @@ fun LibraryScreen(
             .fillMaxSize()
             .background(LightNeutral)
     ) {
-        LibraryHeader()
+        LibraryHeader(
+            currentLanguage = currentLanguage,
+            onSelectLanguage = onSelectLanguage
+        )
 
         Column(
             modifier = Modifier
@@ -188,12 +202,12 @@ fun LibraryScreen(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Importing...",
+                        text = stringResource(R.string.library_importing),
                         style = MaterialTheme.typography.labelLarge
                     )
                 } else {
                     Text(
-                        text = "Import Audio",
+                        text = stringResource(R.string.library_import_button),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -216,49 +230,60 @@ fun LibraryScreen(
             tonalElevation = 0.dp,
             shape = RoundedCornerShape(16.dp),
             title = {
-                Text(
-                    text = "Delete track?",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = InkPrimary
-                )
+                ProvideLocalizedDialogContext {
+                    Text(
+                        text = stringResource(R.string.library_delete_track_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = InkPrimary
+                    )
+                }
             },
             text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Remove \"${track.title}\" from your offline library? This deletes the app-private audio copy.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = InkSecondary
-                    )
-                    if (isTrackInActivePlayback) {
+                ProvideLocalizedDialogContext {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
-                            text = "Active playback using this track will stop and reset.",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                            color = AlertRed
+                            text = stringResource(R.string.library_delete_track_message, track.title),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkSecondary
                         )
-                    }
-                    if (summary.isReferenced) {
-                        Text(
-                            text = "Used in ${summary.affectedSessions.size} saved ${if (summary.affectedSessions.size == 1) "session" else "sessions"} (timers will adjust if shortened):",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                            color = InkPrimary
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            summary.affectedSessions.forEach { affected ->
-                                Column {
-                                    Text(
-                                        text = "• ${affected.sessionName}",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                        color = InkPrimary
-                                    )
-                                    if (affected.willEmptyMainQueue) {
+                        if (isTrackInActivePlayback) {
+                            Text(
+                                text = stringResource(R.string.library_delete_track_active_warning),
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                color = AlertRed
+                            )
+                        }
+                        if (summary.isReferenced) {
+                            Text(
+                                text = stringResource(
+                                    if (summary.affectedSessions.size == 1) {
+                                        R.string.library_delete_track_used_one
+                                    } else {
+                                        R.string.library_delete_track_used_other
+                                    },
+                                    summary.affectedSessions.size.toString()
+                                ),
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                color = InkPrimary
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                summary.affectedSessions.forEach { affected ->
+                                    Column {
                                         Text(
-                                            text = "  Will need a new Main track before playing",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = AlertRed
+                                            text = "• ${affected.sessionName}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                            color = InkPrimary
                                         )
+                                        if (affected.willEmptyMainQueue) {
+                                            Text(
+                                                text = "  ${stringResource(R.string.library_delete_track_empties_main)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = AlertRed
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -267,21 +292,25 @@ fun LibraryScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::confirmDeleteTrack) {
-                    Text(
-                        text = "Delete",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = AlertRed
-                    )
+                ProvideLocalizedDialogContext {
+                    TextButton(onClick = viewModel::confirmDeleteTrack) {
+                        Text(
+                            text = stringResource(R.string.common_delete),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = AlertRed
+                        )
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::dismissDeleteTrack) {
-                    Text(
-                        text = "Cancel",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = InkSecondary
-                    )
+                ProvideLocalizedDialogContext {
+                    TextButton(onClick = viewModel::dismissDeleteTrack) {
+                        Text(
+                            text = stringResource(R.string.common_cancel),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = InkSecondary
+                        )
+                    }
                 }
             }
         )
@@ -300,58 +329,82 @@ fun LibraryScreen(
                 tonalElevation = 0.dp,
                 shape = RoundedCornerShape(16.dp),
                 title = {
-                    Text(
-                        text = "Rename imported tracks?",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = InkPrimary
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Imported ${importRename.tracks.size} tracks. Would you like to customize their display names?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = InkSecondary
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = viewModel::beginBatchImportRename) {
+                    ProvideLocalizedDialogContext {
                         Text(
-                            text = "Rename tracks",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MonasticMaroon
+                            text = stringResource(R.string.rename_batch_prompt_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = InkPrimary
                         )
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = viewModel::skipAllImportRenames) {
+                text = {
+                    ProvideLocalizedDialogContext {
                         Text(
-                            text = "Skip all",
-                            style = MaterialTheme.typography.labelLarge,
+                            text = stringResource(
+                                R.string.rename_batch_prompt_message,
+                                importRename.tracks.size.toString()
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
                             color = InkSecondary
                         )
+                    }
+                },
+                confirmButton = {
+                    ProvideLocalizedDialogContext {
+                        TextButton(onClick = viewModel::beginBatchImportRename) {
+                            Text(
+                                text = stringResource(R.string.rename_batch_confirm),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MonasticMaroon
+                            )
+                        }
+                    }
+                },
+                dismissButton = {
+                    ProvideLocalizedDialogContext {
+                        TextButton(onClick = viewModel::skipAllImportRenames) {
+                            Text(
+                                text = stringResource(R.string.rename_batch_skip_all),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = InkSecondary
+                            )
+                        }
                     }
                 }
             )
         }
 
         is ImportRenameState.Renaming -> {
-            TrackRenameDialog(
+            key(importRename.currentTrack.id) {
+                TrackRenameDialog(
                 title = if (importRename.isBatch) {
-                    "Rename track (${importRename.stepNumber} of ${importRename.totalCount})"
+                    stringResource(
+                        R.string.rename_step_title,
+                        importRename.stepNumber.toString(),
+                        importRename.totalCount.toString()
+                    )
                 } else {
-                    "Name imported track"
+                    stringResource(R.string.rename_single_import_title)
                 },
                 durationMs = importRename.currentTrack.durationMs,
                 draftTitle = importRename.draftTitle,
                 showBlankError = importRename.showBlankError,
                 canSave = importRename.canSave,
                 confirmLabel = if (importRename.isBatch && !importRename.isLastStep) {
-                    "Save & Next"
+                    stringResource(R.string.rename_save_and_next)
                 } else {
-                    "Save"
+                    stringResource(R.string.common_save)
                 },
-                secondaryLabel = if (importRename.isBatch) "Skip" else "Keep default",
-                tertiaryLabel = if (importRename.isBatch) "Skip remaining" else null,
+                secondaryLabel = if (importRename.isBatch) {
+                    stringResource(R.string.rename_skip)
+                } else {
+                    stringResource(R.string.rename_keep_default)
+                },
+                tertiaryLabel = if (importRename.isBatch) {
+                    stringResource(R.string.rename_skip_remaining)
+                } else {
+                    null
+                },
                 imeAction = if (importRename.isBatch && !importRename.isLastStep) {
                     ImeAction.Next
                 } else {
@@ -371,18 +424,19 @@ fun LibraryScreen(
                 },
                 onDismiss = viewModel::skipAllImportRenames
             )
+            }
         }
     }
 
     uiState.pendingTrackRename?.let { pending ->
         TrackRenameDialog(
-            title = "Rename track",
+            title = stringResource(R.string.rename_existing_title),
             durationMs = pending.track.durationMs,
             draftTitle = pending.draftTitle,
             showBlankError = pending.showBlankError,
             canSave = pending.canSave,
-            confirmLabel = "Save",
-            secondaryLabel = "Cancel",
+            confirmLabel = stringResource(R.string.common_save),
+            secondaryLabel = stringResource(R.string.common_cancel),
             tertiaryLabel = null,
             imeAction = ImeAction.Done,
             onDraftTitleChange = viewModel::onExistingTrackRenameDraftChanged,
@@ -395,24 +449,40 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun LibraryHeader() {
-    Column(
+private fun LibraryHeader(
+    currentLanguage: AppLanguage,
+    onSelectLanguage: (AppLanguage) -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MonasticMaroon)
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 20.dp, vertical = 20.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "DhammaMeditate",
-            style = MaterialTheme.typography.headlineMedium,
-            color = PureWhite
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = "Offline Audio Library",
-            style = MaterialTheme.typography.bodyMedium,
-            color = WhiteMuted
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium,
+                color = PureWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.library_header_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WhiteMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        LanguageTogglePill(
+            currentLanguage = currentLanguage,
+            onSelectLanguage = onSelectLanguage
         )
     }
 }
@@ -438,9 +508,9 @@ private fun ImportErrorBanner(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (failures.size == 1) {
-                        "Could not import 1 file"
+                        stringResource(R.string.library_import_error_title_one)
                     } else {
-                        "Could not import ${failures.size} files"
+                        stringResource(R.string.library_import_error_title_other, failures.size.toString())
                     },
                     style = MaterialTheme.typography.labelLarge,
                     color = AlertRed
@@ -448,7 +518,7 @@ private fun ImportErrorBanner(
                 Spacer(modifier = Modifier.height(4.dp))
                 failures.forEach { failure ->
                     Text(
-                        text = "${failure.fileName}: ${failure.reason}",
+                        text = "${failure.fileName.asString()}: ${failure.reason.asString()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = AlertRed
                     )
@@ -457,7 +527,7 @@ private fun ImportErrorBanner(
             IconButton(onClick = onDismiss) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = "Dismiss import error",
+                    contentDescription = stringResource(R.string.library_dismiss_import_error_cd),
                     tint = AlertRed,
                     modifier = Modifier.size(18.dp)
                 )
@@ -496,13 +566,13 @@ private fun EmptyLibraryCard() {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "No offline audio yet",
+                text = stringResource(R.string.library_empty_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = InkPrimary
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Import local MP3, M4A, AAC, WAV, FLAC, or OGG recordings. Files are copied into private offline storage so they remain available anytime.",
+                text = stringResource(R.string.library_empty_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = InkSecondary
             )
@@ -510,6 +580,7 @@ private fun EmptyLibraryCard() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TrackRenameDialog(
     title: String,
@@ -528,6 +599,7 @@ private fun TrackRenameDialog(
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
+        ProvideLocalizedDialogContext {
         Surface(
             color = CardSurface,
             shape = RoundedCornerShape(16.dp),
@@ -556,13 +628,13 @@ private fun TrackRenameDialog(
                 OutlinedTextField(
                     value = draftTitle,
                     onValueChange = onDraftTitleChange,
-                    label = { Text(text = "Track name") },
+                    label = { Text(text = stringResource(R.string.rename_field_label)) },
                     singleLine = true,
                     isError = showBlankError,
                     supportingText = if (showBlankError) {
                         {
                             Text(
-                                text = TrackTitleValidation.BLANK_ERROR_MESSAGE,
+                                text = stringResource(R.string.rename_blank_error),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AlertRed
                             )
@@ -589,10 +661,10 @@ private fun TrackRenameDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     TextButton(onClick = onSecondary) {
                         Text(
@@ -601,7 +673,6 @@ private fun TrackRenameDialog(
                             color = InkSecondary
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
                     TextButton(
                         onClick = onConfirm,
                         enabled = canSave
@@ -628,6 +699,7 @@ private fun TrackRenameDialog(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -688,7 +760,7 @@ private fun TrackCard(
             IconButton(onClick = onRenameClick) {
                 Icon(
                     imageVector = Icons.Outlined.Edit,
-                    contentDescription = "Rename ${track.title}",
+                    contentDescription = stringResource(R.string.library_rename_cd, track.title),
                     tint = InkSecondary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -696,14 +768,14 @@ private fun TrackCard(
             IconButton(onClick = onDeleteClick) {
                 Icon(
                     imageVector = Icons.Outlined.DeleteOutline,
-                    contentDescription = "Delete ${track.title}",
+                    contentDescription = stringResource(R.string.library_delete_cd, track.title),
                     tint = InkSecondary,
                     modifier = Modifier.size(20.dp)
                 )
             }
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
-                contentDescription = "Open ${track.title}",
+                contentDescription = stringResource(R.string.library_open_cd, track.title),
                 tint = InkSecondary,
                 modifier = Modifier.size(20.dp)
             )

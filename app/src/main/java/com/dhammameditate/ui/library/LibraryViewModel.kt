@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.dhammameditate.R
 import com.dhammameditate.data.importer.AudioFileImporter
 import com.dhammameditate.data.importer.ImportResult
 import com.dhammameditate.data.local.TrackEntity
@@ -12,6 +13,8 @@ import com.dhammameditate.data.repository.TrackReferenceSummary
 import com.dhammameditate.data.repository.TrackRepository
 import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackSnapshot
+import com.dhammameditate.ui.common.UiText
+import com.dhammameditate.ui.common.toUiText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,8 +24,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ImportFailureItem(
-    val fileName: String,
-    val reason: String
+    val fileName: UiText,
+    val reason: UiText
 )
 
 data class PendingTrackDeletion(
@@ -110,8 +113,9 @@ class LibraryViewModel(
                         is ImportResult.Success -> succeededTracks.add(result.track)
                         is ImportResult.Failure -> failures.add(
                             ImportFailureItem(
-                                fileName = result.displayName,
-                                reason = result.reason
+                                fileName = result.displayName?.let { UiText.Dynamic(it) }
+                                    ?: UiText.Resource(R.string.import_fallback_file_name),
+                                reason = result.reason.toUiText()
                             )
                         )
                     }

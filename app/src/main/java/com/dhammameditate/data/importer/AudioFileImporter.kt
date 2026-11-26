@@ -16,9 +16,25 @@ import java.io.FileOutputStream
 import java.util.Locale
 import java.util.UUID
 
+enum class ImportFailureReason {
+    UNSUPPORTED_FORMAT,
+    STORAGE_UNAVAILABLE,
+    EMPTY_OR_UNREADABLE,
+    CORRUPT_OR_DRM,
+    OPEN_FAILED,
+    DRM_UNSUPPORTED,
+    VIDEO_UNSUPPORTED,
+    NO_AUDIO_STREAM,
+    ZERO_DURATION,
+    GENERIC
+}
+
 sealed interface ImportResult {
     data class Success(val track: TrackEntity) : ImportResult
-    data class Failure(val displayName: String, val reason: String) : ImportResult
+    data class Failure(
+        val displayName: String?,
+        val reason: ImportFailureReason
+    ) : ImportResult
 }
 
 class AudioFileImporter(
@@ -30,19 +46,20 @@ class AudioFileImporter(
     }
 
     private suspend fun importSingleUri(uri: Uri): ImportResult {
-        val displayName = queryDisplayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Selected file"
+        val rawDisplayName = queryDisplayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/')
+        val displayNameForProbe = rawDisplayName ?: "Selected file"
         val resolverMime = context.contentResolver.getType(uri)?.lowercase(Locale.ROOT)
-        val extension = resolveSupportedExtension(displayName, resolverMime)
+        val extension = resolveSupportedExtension(displayNameForProbe, resolverMime)
             ?: return ImportResult.Failure(
-                displayName = displayName,
-                reason = "Unsupported format. Supported: MP3, M4A/AAC, WAV, FLAC, OGG."
+                displayName = rawDisplayName,
+                reason = ImportFailureReason.UNSUPPORTED_FORMAT
             )
 
         val audioDir = trackRepository.audioDir
         if (!audioDir.exists() && !audioDir.mkdirs()) {
             return ImportResult.Failure(
-                displayName = displayName,
-                reason = "Unable to prepare app-private audio storage."
+                displayName = rawDisplayName,
+                reason = ImportFailureReason.STORAGE_UNAVAILABLE
             )
         }
 
@@ -54,15 +71,15 @@ class AudioFileImporter(
             val bytesCopied = copyUriToFile(uri, tempFile)
             if (bytesCopied <= 0L) {
                 return ImportResult.Failure(
-                    displayName = displayName,
-                    reason = "File is empty or unreadable."
+                    displayName = rawDisplayName,
+                    reason = ImportFailureReason.EMPTY_OR_UNREADABLE
                 )
             }
 
-            val probe = probeAudioFile(tempFile, displayName, extension, resolverMime)
+            val probe = probeAudioFile(tempFile, displayNameForProbe, extension, resolverMime)
                 ?: return ImportResult.Failure(
-                    displayName = displayName,
-                    reason = "File is corrupt, DRM-protected, or contains no readable audio."
+                    displayName = rawDisplayName,
+                    reason = ImportFailureReason.CORRUPT_OR_DRM
                 )
 
             val localFileName = "$trackId.$extension"
@@ -85,12 +102,12 @@ class AudioFileImporter(
             throw ce
         } catch (e: AudioValidationException) {
             finalFile?.delete()
-            ImportResult.Failure(displayName = displayName, reason = e.message ?: "Unreadable audio file.")
+            ImportResult.Failure(displayName = rawDisplayName, reason = e.reason)
         } catch (e: Exception) {
             finalFile?.delete()
             ImportResult.Failure(
-                displayName = displayName,
-                reason = "Could not import file: file may be corrupt or unsupported."
+                displayName = rawDisplayName,
+                reason = ImportFailureReason.GENERIC
             )
         } finally {
             if (tempFile.exists()) {
@@ -122,7 +139,7 @@ class AudioFileImporter(
 
     private fun copyUriToFile(uri: Uri, destination: File): Long {
         val input = context.contentResolver.openInputStream(uri)
-            ?: throw AudioValidationException("Unable to open selected file.")
+            ?: throw AudioValidationException(ImportFailureReason.OPEN_FAILED)
         return input.use { inStream ->
             FileOutputStream(destination).use { outStream ->
                 val copied = inStream.copyTo(outStream, bufferSize = 16 * 1024)
@@ -156,7 +173,7 @@ class AudioFileImporter(
         try {
             extractor.setDataSource(file.absolutePath)
             if (extractor.drmInitData != null) {
-                throw AudioValidationException("DRM-protected audio files are not supported.")
+                throw AudioValidationException(ImportFailureReason.DRM_UNSUPPORTED)
             }
 
             var hasAudioTrack = false
@@ -164,7 +181,7 @@ class AudioFileImporter(
                 val format = extractor.getTrackFormat(i)
                 val mime = format.getString(MediaFormat.KEY_MIME)?.lowercase(Locale.ROOT) ?: continue
                 if (mime.startsWith("video/")) {
-                    throw AudioValidationException("Video files are not supported. Select an audio file.")
+                    throw AudioValidationException(ImportFailureReason.VIDEO_UNSUPPORTED)
                 }
                 if (mime.startsWith("audio/")) {
                     hasAudioTrack = true
@@ -181,7 +198,7 @@ class AudioFileImporter(
             }
 
             if (!hasAudioTrack) {
-                throw AudioValidationException("No readable audio stream found in file.")
+                throw AudioValidationException(ImportFailureReason.NO_AUDIO_STREAM)
             }
         } catch (e: AudioValidationException) {
             throw e
@@ -217,7 +234,7 @@ class AudioFileImporter(
 
         val finalDurationMs = if (retrieverDurationMs > 0L) retrieverDurationMs else extractorDurationMs
         if (finalDurationMs <= 0L) {
-            throw AudioValidationException("Audio duration could not be determined or is zero.")
+            throw AudioValidationException(ImportFailureReason.ZERO_DURATION)
         }
 
         val fallbackTitle = stripLastExtension(displayName).trim().ifBlank { "Untitled Track" }
@@ -255,7 +272,7 @@ class AudioFileImporter(
         val durationMs: Long
     )
 
-    private class AudioValidationException(message: String) : Exception(message)
+    private class AudioValidationException(val reason: ImportFailureReason) : Exception(reason.name)
 
     companion object {
         val SUPPORTED_EXTENSIONS = setOf("mp3", "m4a", "aac", "wav", "flac", "ogg", "oga")

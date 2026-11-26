@@ -3,6 +3,7 @@ package com.dhammameditate.ui.editor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.dhammameditate.R
 import com.dhammameditate.data.local.QueueZone
 import com.dhammameditate.data.local.TrackEntity
 import com.dhammameditate.data.repository.SessionDraft
@@ -10,6 +11,8 @@ import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
 import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.TimerValidation
+import com.dhammameditate.ui.common.UiText
+import com.dhammameditate.ui.common.toUiText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,8 +39,8 @@ data class SessionEditorUiState(
     val targetDurationMs: Long = 0L,
     val isFullSelected: Boolean = false,
     val customMinutesInput: String = "",
-    val capNotice: String? = null,
-    val saveError: String? = null,
+    val capNotice: UiText? = null,
+    val saveError: UiText? = null,
     val isSaving: Boolean = false,
     val isEditingActiveSession: Boolean = false
 ) {
@@ -68,8 +71,8 @@ private data class EditorDraftState(
     val targetDurationMs: Long = 0L,
     val isFullSelected: Boolean = false,
     val customMinutesInput: String = "",
-    val capNotice: String? = null,
-    val saveError: String? = null,
+    val capNotice: UiText? = null,
+    val saveError: UiText? = null,
     val isSaving: Boolean = false
 )
 
@@ -233,7 +236,7 @@ class SessionEditorViewModel(
                                 targetDurationMs = reconciled.durationMs,
                                 isFullSelected = state.isFullSelected && reconciled.durationMs == newMainTotal,
                                 customMinutesInput = state.customMinutesInput,
-                                capNotice = "Enter at least 1 minute",
+                                capNotice = UiText.Resource(R.string.timer_error_min_one_minute),
                                 saveError = null
                             )
                         } else {
@@ -247,7 +250,7 @@ class SessionEditorViewModel(
                                 targetDurationMs = capped.durationMs,
                                 isFullSelected = capped.wasCapped,
                                 customMinutesInput = state.customMinutesInput,
-                                capNotice = capped.noticeMessage,
+                                capNotice = capped.capNotice?.toUiText(),
                                 saveError = null
                             )
                         }
@@ -331,8 +334,8 @@ class SessionEditorViewModel(
                         nextCustomInput.isNotEmpty() &&
                         (nextCustomInput.toIntOrNull() ?: 0) < 1
                     val nextCapNotice = when {
-                        hasPreservedInvalidCustomInput -> "Enter at least 1 minute"
-                        else -> reconciled.noticeMessage
+                        hasPreservedInvalidCustomInput -> UiText.Resource(R.string.timer_error_min_one_minute)
+                        else -> reconciled.capNotice?.toUiText()
                     }
                     state.copy(
                         mainItems = updatedMain,
@@ -384,7 +387,7 @@ class SessionEditorViewModel(
         val mainTotal = state.mainItems.sumOf { it.track.durationMs }
         if (mainTotal <= 0L) return
 
-        val digitsOnly = rawInput.filter { it.isDigit() }.take(4)
+        val digitsOnly = rawInput.filter { it in '0'..'9' }.take(4)
         if (digitsOnly.isEmpty()) {
             draftState.update {
                 it.copy(
@@ -401,7 +404,7 @@ class SessionEditorViewModel(
             draftState.update {
                 it.copy(
                     customMinutesInput = digitsOnly,
-                    capNotice = "Enter at least 1 minute",
+                    capNotice = UiText.Resource(R.string.timer_error_min_one_minute),
                     saveError = null
                 )
             }
@@ -418,7 +421,7 @@ class SessionEditorViewModel(
                 targetDurationMs = capped.durationMs,
                 isFullSelected = capped.wasCapped,
                 customMinutesInput = digitsOnly,
-                capNotice = capped.noticeMessage,
+                capNotice = capped.capNotice?.toUiText(),
                 saveError = null
             )
         }
@@ -435,7 +438,7 @@ class SessionEditorViewModel(
             scopeLabel = TimerValidation.SCOPE_MAIN_QUEUE
         )
         if (capped.durationMs <= 0L) {
-            draftState.update { it.copy(capNotice = "Select a valid timer duration.") }
+            draftState.update { it.copy(capNotice = UiText.Resource(R.string.timer_error_invalid_duration)) }
             return
         }
 
@@ -456,11 +459,11 @@ class SessionEditorViewModel(
                 )
                 draftState.update { it.copy(isSaving = false) }
                 onSaved(savedId)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 draftState.update {
                     it.copy(
                         isSaving = false,
-                        saveError = e.message ?: "Could not save session. Please check your tracks and try again."
+                        saveError = UiText.Resource(R.string.editor_save_error_generic)
                     )
                 }
             }

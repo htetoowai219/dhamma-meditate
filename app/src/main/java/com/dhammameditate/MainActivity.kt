@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
@@ -24,17 +25,26 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dhammameditate.data.preferences.withAppLanguage
 import com.dhammameditate.playback.PlaybackSnapshot
+import com.dhammameditate.ui.common.LocalAppLocalizedContext
 import com.dhammameditate.ui.editor.SessionEditorScreen
 import com.dhammameditate.ui.editor.SessionEditorViewModel
 import com.dhammameditate.ui.library.LibraryScreen
@@ -145,6 +155,17 @@ class MainActivity : ComponentActivity() {
         val container = (application as DhammaMeditateApp).container
 
         setContent {
+            val currentLanguage by container.appLanguageStore.language.collectAsStateWithLifecycle()
+            val localizedContext = remember(this@MainActivity, currentLanguage) {
+                this@MainActivity.withAppLanguage(currentLanguage)
+            }
+
+            CompositionLocalProvider(
+                LocalActivityResultRegistryOwner provides this@MainActivity,
+                LocalAppLocalizedContext provides localizedContext,
+                LocalContext provides localizedContext,
+                LocalConfiguration provides localizedContext.resources.configuration
+            ) {
             DhammaMeditateTheme {
                 var destination by rememberSaveable(stateSaver = AppDestinationSaver) {
                     mutableStateOf(
@@ -207,6 +228,8 @@ class MainActivity : ComponentActivity() {
                                     HomeTab.SESSIONS -> {
                                         SessionsScreen(
                                             viewModel = sessionsViewModel,
+                                            currentLanguage = currentLanguage,
+                                            onSelectLanguage = container.appLanguageStore::setLanguage,
                                             onNewSession = {
                                                 val instanceId = editorCounter++
                                                 destination = AppDestination.SessionEditor(
@@ -233,6 +256,8 @@ class MainActivity : ComponentActivity() {
                                     HomeTab.LIBRARY -> {
                                         LibraryScreen(
                                             viewModel = libraryViewModel,
+                                            currentLanguage = currentLanguage,
+                                            onSelectLanguage = container.appLanguageStore::setLanguage,
                                             onOpenTrack = { trackId ->
                                                 destination = AppDestination.QuickTrackPlayer(trackId)
                                             },
@@ -320,6 +345,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            }
         }
     }
 
@@ -348,19 +374,23 @@ private fun HomeBottomNavigationBar(
             containerColor = CardSurface,
             tonalElevation = 0.dp
         ) {
+            val sessionsLabel = stringResource(R.string.nav_sessions)
+            val libraryLabel = stringResource(R.string.nav_library)
             NavigationBarItem(
                 selected = selectedTab == HomeTab.SESSIONS,
                 onClick = { onSelectTab(HomeTab.SESSIONS) },
                 icon = {
                     Icon(
                         imageVector = Icons.Outlined.SelfImprovement,
-                        contentDescription = "Sessions"
+                        contentDescription = sessionsLabel
                     )
                 },
                 label = {
                     Text(
-                        text = "Sessions",
-                        style = MaterialTheme.typography.labelMedium
+                        text = sessionsLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -377,13 +407,15 @@ private fun HomeBottomNavigationBar(
                 icon = {
                     Icon(
                         imageVector = Icons.Outlined.LibraryMusic,
-                        contentDescription = "Library"
+                        contentDescription = libraryLabel
                     )
                 },
                 label = {
                     Text(
-                        text = "Library",
-                        style = MaterialTheme.typography.labelMedium
+                        text = libraryLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

@@ -60,14 +60,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dhammameditate.R
 import com.dhammameditate.data.local.QueueZone
 import com.dhammameditate.data.local.TrackEntity
 import com.dhammameditate.playback.TimerValidation
+import com.dhammameditate.ui.common.ProvideLocalizedDialogContext
+import com.dhammameditate.ui.common.UiText
+import com.dhammameditate.ui.common.asString
 import com.dhammameditate.ui.theme.AlertRed
 import com.dhammameditate.ui.theme.AlertSurface
 import com.dhammameditate.ui.theme.CardSurface
@@ -99,7 +104,9 @@ fun SessionEditorScreen(
             .background(LightNeutral)
     ) {
         EditorTopBar(
-            title = if (uiState.isEditMode) "Edit Session" else "New Session",
+            title = stringResource(
+                if (uiState.isEditMode) R.string.editor_title_edit else R.string.editor_title_new
+            ),
             backEnabled = !uiState.isSaving,
             onBack = onBack
         )
@@ -135,13 +142,13 @@ fun SessionEditorScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Session not found",
+                                text = stringResource(R.string.editor_not_found_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = InkPrimary
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "This session may have been deleted.",
+                                text = stringResource(R.string.editor_not_found_body),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = InkSecondary
                             )
@@ -155,7 +162,10 @@ fun SessionEditorScreen(
                                 ),
                                 elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
                             ) {
-                                Text("Back to Sessions", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    text = stringResource(R.string.editor_back_to_sessions),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
                             }
                         }
                     }
@@ -179,7 +189,7 @@ fun SessionEditorScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Saving changes will stop and reset the active session.",
+                                text = stringResource(R.string.editor_active_warning),
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                                 color = MonasticMaroon,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
@@ -195,7 +205,7 @@ fun SessionEditorScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = error,
+                                text = error.asString(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AlertRed,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
@@ -212,13 +222,16 @@ fun SessionEditorScreen(
 
                     // 2. Intro Queue Card (Optional · Untimed)
                     QueueZoneCard(
-                        title = "Intro Queue",
-                        subtitle = "Optional · Countdown stays paused",
+                        title = stringResource(R.string.editor_intro_title),
+                        subtitle = stringResource(R.string.editor_intro_subtitle),
                         items = uiState.introItems,
-                        emptyMessage = "No intro tracks. Main Queue will begin immediately.",
+                        emptyMessage = stringResource(R.string.editor_intro_empty),
                         emptyIsError = false,
                         footerText = if (uiState.introItems.isNotEmpty()) {
-                            "Intro total: ${TimerValidation.formatDuration(uiState.introTotalDurationMs)} (untimed)"
+                            stringResource(
+                                R.string.editor_intro_footer,
+                                TimerValidation.formatDuration(uiState.introTotalDurationMs)
+                            )
                         } else {
                             null
                         },
@@ -230,10 +243,13 @@ fun SessionEditorScreen(
 
                     // 3. Main Queue Card (Required · Timed)
                     QueueZoneCard(
-                        title = "Main Queue",
-                        subtitle = "Required · Combined: ${TimerValidation.formatDuration(uiState.mainTotalDurationMs)}",
+                        title = stringResource(R.string.editor_main_title),
+                        subtitle = stringResource(
+                            R.string.editor_main_subtitle,
+                            TimerValidation.formatDuration(uiState.mainTotalDurationMs)
+                        ),
                         items = uiState.mainItems,
-                        emptyMessage = "Add at least 1 track to the Main Queue",
+                        emptyMessage = stringResource(R.string.editor_main_empty),
                         emptyIsError = true,
                         footerText = null,
                         onAddTrackClick = { activePickerZone = QueueZone.MAIN },
@@ -290,9 +306,15 @@ fun SessionEditorScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("Saving...", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    text = stringResource(R.string.editor_saving),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
                             } else {
-                                Text("Save Session", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    text = stringResource(R.string.editor_save_button),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
                             }
                         }
                     }
@@ -310,15 +332,17 @@ fun SessionEditorScreen(
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             tonalElevation = 0.dp
         ) {
-            TrackPickerSheetContent(
-                zone = targetZone,
-                tracks = uiState.libraryTracks,
-                onSelectTrack = { track ->
-                    viewModel.addTrack(targetZone, track)
-                    activePickerZone = null
-                },
-                onDismiss = { activePickerZone = null }
-            )
+            ProvideLocalizedDialogContext {
+                TrackPickerSheetContent(
+                    zone = targetZone,
+                    tracks = uiState.libraryTracks,
+                    onSelectTrack = { track ->
+                        viewModel.addTrack(targetZone, track)
+                        activePickerZone = null
+                    },
+                    onDismiss = { activePickerZone = null }
+                )
+            }
         }
     }
 }
@@ -343,7 +367,7 @@ private fun EditorTopBar(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.common_back),
                 tint = PureWhite
             )
         }
@@ -374,7 +398,7 @@ private fun SessionNameCard(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Session Name",
+                text = stringResource(R.string.editor_session_name_label),
                 style = MaterialTheme.typography.titleMedium,
                 color = InkPrimary
             )
@@ -386,7 +410,7 @@ private fun SessionNameCard(
                 isError = showError,
                 label = {
                     Text(
-                        text = "Session Name",
+                        text = stringResource(R.string.editor_session_name_label),
                         style = MaterialTheme.typography.bodySmall
                     )
                 },
@@ -410,7 +434,7 @@ private fun SessionNameCard(
             if (showError) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Enter a session name",
+                    text = stringResource(R.string.editor_session_name_error),
                     style = MaterialTheme.typography.bodySmall,
                     color = AlertRed
                 )
@@ -478,7 +502,7 @@ private fun QueueZoneCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Add Track",
+                        text = stringResource(R.string.editor_add_track),
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
@@ -585,7 +609,7 @@ private fun QueueTrackRow(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.ArrowUpward,
-                    contentDescription = "Move up",
+                    contentDescription = stringResource(R.string.editor_move_up_cd),
                     tint = if (canMoveUp) InkPrimary else OutlineNeutral,
                     modifier = Modifier.size(18.dp)
                 )
@@ -597,7 +621,7 @@ private fun QueueTrackRow(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.ArrowDownward,
-                    contentDescription = "Move down",
+                    contentDescription = stringResource(R.string.editor_move_down_cd),
                     tint = if (canMoveDown) InkPrimary else OutlineNeutral,
                     modifier = Modifier.size(18.dp)
                 )
@@ -608,7 +632,7 @@ private fun QueueTrackRow(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = "Remove ${track.title}",
+                    contentDescription = stringResource(R.string.editor_remove_track_cd, track.title),
                     tint = InkSecondary,
                     modifier = Modifier.size(18.dp)
                 )
@@ -623,7 +647,7 @@ private fun SessionTimerCard(
     selectedDurationMs: Long,
     isFullSelected: Boolean,
     customMinutesInput: String,
-    capNotice: String?,
+    capNotice: UiText?,
     enabled: Boolean,
     onSelectPreset: (Int) -> Unit,
     onSelectFull: () -> Unit,
@@ -648,7 +672,7 @@ private fun SessionTimerCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Meditation Timer",
+                    text = stringResource(R.string.editor_timer_title),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = InkPrimary
                 )
@@ -665,7 +689,7 @@ private fun SessionTimerCard(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Applies to Main Queue only (capped to combined Main Queue length).",
+                text = stringResource(R.string.editor_timer_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = InkSecondary
             )
@@ -684,7 +708,7 @@ private fun SessionTimerCard(
                         customMinutesInput.isEmpty() &&
                         selectedDurationMs == minutes.toLong() * 60_000L
                     EditorPresetChip(
-                        label = "${minutes}m",
+                        label = stringResource(R.string.timer_preset_minutes, minutes.toString()),
                         selected = selected,
                         enabled = chipEnabled,
                         onClick = { onSelectPreset(minutes) },
@@ -707,7 +731,7 @@ private fun SessionTimerCard(
                         customMinutesInput.isEmpty() &&
                         selectedDurationMs == minutes.toLong() * 60_000L
                     EditorPresetChip(
-                        label = "${minutes}m",
+                        label = stringResource(R.string.timer_preset_minutes, minutes.toString()),
                         selected = selected,
                         enabled = chipEnabled,
                         onClick = { onSelectPreset(minutes) },
@@ -715,7 +739,7 @@ private fun SessionTimerCard(
                     )
                 }
                 EditorPresetChip(
-                    label = "Full",
+                    label = stringResource(R.string.timer_preset_full),
                     selected = enabled && isFullSelected && customMinutesInput.isEmpty(),
                     enabled = enabled,
                     onClick = onSelectFull,
@@ -732,7 +756,7 @@ private fun SessionTimerCard(
                 singleLine = true,
                 label = {
                     Text(
-                        text = "Custom minutes (min 1)",
+                        text = stringResource(R.string.timer_custom_minutes_label),
                         style = MaterialTheme.typography.bodySmall
                     )
                 },
@@ -757,7 +781,7 @@ private fun SessionTimerCard(
             if (capNotice != null) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = capNotice,
+                    text = capNotice.asString(),
                     style = MaterialTheme.typography.bodySmall,
                     color = AlertRed
                 )
@@ -791,11 +815,16 @@ private fun EditorPresetChip(
             .clip(RoundedCornerShape(12.dp))
             .clickable(enabled = enabled, onClick = onClick)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = textColor
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -808,11 +837,9 @@ private fun TrackPickerSheetContent(
     onSelectTrack: (TrackEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val headerTitle = if (zone == QueueZone.INTRO) {
-        "Add to Intro Queue"
-    } else {
-        "Add to Main Queue"
-    }
+    val headerTitle = stringResource(
+        if (zone == QueueZone.INTRO) R.string.picker_add_intro else R.string.picker_add_main
+    )
 
     Column(
         modifier = Modifier
@@ -830,12 +857,15 @@ private fun TrackPickerSheetContent(
             Text(
                 text = headerTitle,
                 style = MaterialTheme.typography.titleLarge,
-                color = InkPrimary
+                color = InkPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
             IconButton(onClick = onDismiss) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = "Close track picker",
+                    contentDescription = stringResource(R.string.picker_close_cd),
                     tint = InkSecondary
                 )
             }
@@ -851,13 +881,13 @@ private fun TrackPickerSheetContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Your offline library is empty",
+                    text = stringResource(R.string.picker_empty_title),
                     style = MaterialTheme.typography.titleMedium,
                     color = InkPrimary
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Import local audio files in the Library tab first, then add them to your Intro or Main queue.",
+                    text = stringResource(R.string.picker_empty_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = InkSecondary
                 )

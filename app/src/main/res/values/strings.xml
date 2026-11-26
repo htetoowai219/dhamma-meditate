@@ -1,6 +1,201 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App Name -->
     <string name="app_name">DhammaMeditate</string>
-    <string name="notification_subtitle">DhammaMeditate · Timed Session</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 1: Navigation, Headers, Common Actions & Sessions Screen      -->
+    <!-- =================================================================== -->
+    <string name="nav_sessions">Sessions</string>
+    <string name="nav_library">Library</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_save">Save</string>
+    <string name="common_back">Back</string>
+
+    <string name="sessions_header_subtitle">Meditation Sessions</string>
+    <string name="sessions_new_button">New Session</string>
+    <string name="sessions_empty_title">No meditation sessions yet</string>
+    <string name="sessions_empty_body_has_tracks">Combine an optional untimed Intro Queue with a timed Main Queue and a saved countdown. Tap New Session below to create your first session.</string>
+    <string name="sessions_empty_body_no_tracks">Build reusable two-zone sessions with an optional untimed Intro Queue and a timed Main Queue. Import audio in the Library tab first, then tap New Session.</string>
+    <string name="sessions_delete_title">Delete session?</string>
+    <string name="sessions_delete_message">Remove \"%1$s\"? Your imported audio files in the Library will remain intact.</string>
+    <string name="sessions_delete_active_warning">Active playback for this session will stop and reset.</string>
+    <string name="sessions_intro_none">No Intro</string>
+    <string name="sessions_intro_summary">Intro: %1$s</string>
+    <string name="sessions_main_empty">Main: None</string>
+    <string name="sessions_main_summary">Main: %1$s</string>
+    <string name="sessions_needs_main_badge">Needs Main Track</string>
+    <string name="sessions_timer_badge">Timer %1$s</string>
+    <string name="sessions_edit_cd">Edit %1$s</string>
+    <string name="sessions_delete_cd">Delete %1$s</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 2: Library, Audio Import & Track Rename                       -->
+    <!-- =================================================================== -->
+    <string name="library_header_subtitle">Offline Audio Library</string>
+    <string name="library_import_button">Import Audio</string>
+    <string name="library_importing">Importing…</string>
+    <string name="library_empty_title">No offline audio yet</string>
+    <string name="library_empty_body">Import local MP3, M4A, AAC, WAV, FLAC, or OGG recordings. Files are copied into private offline storage so they remain available anytime.</string>
+    <string name="library_import_error_title_one">Could not import 1 file</string>
+    <string name="library_import_error_title_other">Could not import %1$s files</string>
+    <string name="library_dismiss_import_error_cd">Dismiss import error</string>
+    <string name="library_delete_track_title">Delete track?</string>
+    <string name="library_delete_track_message">Remove \"%1$s\" from your offline library? This deletes the app-private audio copy.</string>
+    <string name="library_delete_track_active_warning">Active playback using this track will stop and reset.</string>
+    <string name="library_delete_track_used_one">Used in %1$s saved session (timers will adjust if shortened):</string>
+    <string name="library_delete_track_used_other">Used in %1$s saved sessions (timers will adjust if shortened):</string>
+    <string name="library_delete_track_empties_main">Will need a new Main track before playing</string>
+    <string name="library_rename_cd">Rename %1$s</string>
+    <string name="library_delete_cd">Delete %1$s</string>
+    <string name="library_open_cd">Open %1$s</string>
+
+    <string name="rename_batch_prompt_title">Rename imported tracks?</string>
+    <string name="rename_batch_prompt_message">Imported %1$s tracks. Would you like to customize their display names?</string>
+    <string name="rename_batch_confirm">Rename tracks</string>
+    <string name="rename_batch_skip_all">Skip all</string>
+    <string name="rename_step_title">Rename track (%1$s of %2$s)</string>
+    <string name="rename_single_import_title">Name imported track</string>
+    <string name="rename_existing_title">Rename track</string>
+    <string name="rename_field_label">Track name</string>
+    <string name="rename_blank_error">Track name cannot be empty.</string>
+    <string name="rename_save_and_next">Save &amp; Next</string>
+    <string name="rename_skip">Skip</string>
+    <string name="rename_keep_default">Keep default</string>
+    <string name="rename_skip_remaining">Skip remaining</string>
+
+    <string name="import_fallback_file_name">Selected file</string>
+    <string name="import_error_unsupported_format">Unsupported format. Supported: MP3, M4A/AAC, WAV, FLAC, OGG.</string>
+    <string name="import_error_storage">Unable to prepare app-private audio storage.</string>
+    <string name="import_error_empty_file">File is empty or unreadable.</string>
+    <string name="import_error_corrupt_or_drm">File is corrupt, DRM-protected, or contains no readable audio.</string>
+    <string name="import_error_open_failed">Unable to open selected file.</string>
+    <string name="import_error_drm">DRM-protected audio files are not supported.</string>
+    <string name="import_error_video">Video files are not supported. Select an audio file.</string>
+    <string name="import_error_no_audio_stream">No readable audio stream found in file.</string>
+    <string name="import_error_zero_duration">Audio duration could not be determined or is zero.</string>
+    <string name="import_error_generic">Could not import file: file may be corrupt or unsupported.</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 3: Session Editor & Timer Validation                          -->
+    <!-- =================================================================== -->
+    <string name="editor_title_new">New Session</string>
+    <string name="editor_title_edit">Edit Session</string>
+    <string name="editor_not_found_title">Session not found</string>
+    <string name="editor_not_found_body">This session may have been deleted.</string>
+    <string name="editor_back_to_sessions">Back to Sessions</string>
+    <string name="editor_active_warning">Saving changes will stop and reset the active session.</string>
+    <string name="editor_session_name_label">Session Name</string>
+    <string name="editor_session_name_error">Enter a session name</string>
+    <string name="editor_intro_title">Intro Queue</string>
+    <string name="editor_intro_subtitle">Optional · Countdown stays paused</string>
+    <string name="editor_intro_empty">No intro tracks. Main Queue will begin immediately.</string>
+    <string name="editor_intro_footer">Intro total: %1$s (untimed)</string>
+    <string name="editor_main_title">Main Queue</string>
+    <string name="editor_main_subtitle">Required · Combined: %1$s</string>
+    <string name="editor_main_empty">Add at least 1 track to the Main Queue</string>
+    <string name="editor_add_track">Add Track</string>
+    <string name="editor_move_up_cd">Move up</string>
+    <string name="editor_move_down_cd">Move down</string>
+    <string name="editor_remove_track_cd">Remove %1$s</string>
+    <string name="editor_timer_title">Meditation Timer</string>
+    <string name="editor_timer_hint">Applies to Main Queue only (capped to combined Main Queue length).</string>
+    <string name="editor_save_button">Save Session</string>
+    <string name="editor_saving">Saving…</string>
+    <string name="editor_save_error_generic">Could not save session. Please check your tracks and try again.</string>
+
+    <string name="picker_add_intro">Add to Intro Queue</string>
+    <string name="picker_add_main">Add to Main Queue</string>
+    <string name="picker_close_cd">Close track picker</string>
+    <string name="picker_empty_title">Your offline library is empty</string>
+    <string name="picker_empty_body">Import local audio files in the Library tab first, then add them to your Intro or Main queue.</string>
+
+    <string name="timer_preset_minutes">%1$sm</string>
+    <string name="timer_preset_full">Full</string>
+    <string name="timer_custom_minutes_label">Custom minutes (min 1)</string>
+    <string name="timer_error_min_one_minute">Enter at least 1 minute</string>
+    <string name="timer_error_invalid_duration">Select a valid timer duration.</string>
+    <string name="timer_adjusted_track">Adjusted to track length (%1$s)</string>
+    <string name="timer_adjusted_main_queue">Adjusted to Main Queue length (%1$s)</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 4: Players, Active Banner, Distraction Check & Notifications  -->
+    <!-- =================================================================== -->
+    <string name="session_player_title">Meditation Session</string>
+    <string name="session_player_edit_cd">Edit session</string>
+    <string name="session_player_unavailable_title">Session unavailable</string>
+    <string name="session_player_unavailable_body">This meditation session no longer exists.</string>
+    <string name="session_player_needs_main_banner">Needs Main Track before playback can start.</string>
+    <string name="session_player_queue_intro_header">INTRO QUEUE · UNTIMED (%1$s)</string>
+    <string name="session_player_queue_main_header">MAIN QUEUE · COMBINED %1$s</string>
+    <string name="session_player_queue_main_empty">No Main tracks configured.</string>
+    <string name="session_player_pill_intro">INTRO · Track %1$s of %2$s · Timer paused</string>
+    <string name="session_player_pill_main">MAIN · Track %1$s of %2$s</string>
+    <string name="session_player_pill_completed">COMPLETED · Fresh 00:00 on next start</string>
+    <string name="session_player_pill_ready_intro_main">READY · Intro + Main</string>
+    <string name="session_player_pill_ready_main_only">READY · Main only</string>
+
+    <string name="player_title">Timed Session</string>
+    <string name="player_back_to_library">Back to Library</string>
+    <string name="player_track_unavailable_title">Track unavailable</string>
+    <string name="player_track_unavailable_body">This audio file is no longer in your offline library.</string>
+    <string name="player_track_length">Track length · %1$s</string>
+    <string name="player_session_duration">Session Duration</string>
+    <string name="player_locked_while_active">Locked while active</string>
+    <string name="player_dismiss_error_cd">Dismiss playback error</string>
+
+    <string name="transport_start_session">Start Session</string>
+    <string name="transport_pause">Pause</string>
+    <string name="transport_continue">Continue</string>
+    <string name="transport_skip_to_main">Skip to Main</string>
     <string name="action_stop_reset">Stop &amp; Reset</string>
+
+    <string name="status_ready">Ready</string>
+    <string name="status_intro_playing_session">Playing Intro · Countdown paused</string>
+    <string name="status_intro_paused_session">Intro paused · Countdown paused</string>
+    <string name="status_playing_main">Playing Main Queue</string>
+    <string name="status_intro_playing_quick">Intro playing</string>
+    <string name="status_intro_paused_quick">Intro paused</string>
+    <string name="status_playing">Playing</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_fading">Fading out…</string>
+    <string name="status_completed">Session complete</string>
+
+    <string name="banner_default_title">Active Session</string>
+    <string name="banner_phase_intro">Intro</string>
+    <string name="banner_phase_intro_paused">Intro · Paused</string>
+    <string name="banner_phase_main">Main</string>
+    <string name="banner_phase_playing">Playing</string>
+    <string name="banner_phase_paused">Paused</string>
+    <string name="banner_phase_fading">Fading</string>
+    <string name="banner_phase_active">Active</string>
+    <string name="banner_icon_cd">Active meditation session</string>
+    <string name="banner_return_cd">Return to active session</string>
+
+    <string name="distraction_ready_title">Ready to Meditate</string>
+    <string name="distraction_prompt_title">Silence Distractions?</string>
+    <string name="distraction_open_settings">Open Settings</string>
+    <string name="distraction_continue_anyway">Continue anyway</string>
+    <string name="distraction_summary_airplane">Airplane Mode is on. Ready for quiet meditation.</string>
+    <string name="distraction_summary_dnd">Do Not Disturb is active. Ready for quiet meditation.</string>
+    <string name="distraction_summary_silent">Phone is silenced. Ready for quiet meditation.</string>
+    <string name="distraction_summary_normal">Airplane Mode is off and your ringer is on.</string>
+    <string name="distraction_summary_vibrate">Airplane Mode is off and vibration is on.</string>
+    <string name="distraction_summary_unknown">Airplane Mode is off and alerts may interrupt your session.</string>
+    <string name="distraction_guidance_ready">Device is quiet and ready for meditation.</string>
+    <string name="distraction_guidance_not_ready">Turn on Airplane Mode or silence alerts so calls and notifications do not break your stillness.</string>
+
+    <string name="notification_subtitle">DhammaMeditate · Timed Session</string>
+    <string name="notification_session_intro">%1$s · Intro (%2$s/%3$s)</string>
+    <string name="notification_session_main">%1$s · Main (%2$s/%3$s)</string>
+    <string name="playback_error_failed">Audio playback failed: file may be missing or unreadable.</string>
+    <string name="playback_error_track_not_found">Selected track could not be found in your library.</string>
+    <string name="playback_error_file_missing">Local audio file is missing or unreadable. Try re-importing it.</string>
+    <string name="playback_error_invalid_timer">Selected timer duration is invalid.</string>
+    <string name="playback_error_session_not_found">Selected session could not be found.</string>
+    <string name="playback_error_session_needs_main">This session needs at least one Main Queue track before playing.</string>
+    <string name="playback_error_session_invalid_timer">Session timer duration is invalid. Edit the session to set a timer.</string>
+    <string name="playback_error_missing_intro_track">Missing or unreadable Intro track: \"%1$s\". Re-import it or edit the session.</string>
+    <string name="playback_error_missing_main_track">Missing or unreadable Main track: \"%1$s\". Re-import it or edit the session.</string>
 </resources>

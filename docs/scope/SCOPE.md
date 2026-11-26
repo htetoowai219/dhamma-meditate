@@ -3,8 +3,8 @@
 A minimalist, 100% offline mobile app that combines a local audio player with a programmable meditation timer for Burmese Dhamma (တရား) talks and preparation tracks. Users assemble reusable two-zone sessions (untimed Intro + timed Main) and meditate reliably with the screen off.
 
 - **Project Mode:** Prototype / MVP — Solid core playback, strict timer validation, and screen-off reliability without store-release ceremony (Cap: 2–4 phases per release)
-- **Build Approach:** Journey for v0.2.0 (Finish one complete user flow deep per phase on top of the v0.1.0 Tracer Bullet core)
-- **Source Idea:** `docs/scope/idea.md` (v0.2.0: Track Renaming & Skip to Main)
+- **Build Approach:** Journey for v0.2.0 & v0.3.0 (Finish one complete user flow deep per phase on top of the v0.1.0 Tracer Bullet core)
+- **Source Idea:** `docs/scope/idea.md` (v0.1.0–v0.2.0) + `/scope` enrollment (v0.3.0: Burmese Language Localization)
 - **Tech Stack:** Native Android (Kotlin, Gradle Kotlin DSL, `compileSdk = 35`, `minSdk = 26`), Jetpack Compose + Material 3 (flat Monastic Maroon & Saffron tokens), Jetpack Media3 (`ExoPlayer` + `MediaSessionService`), Room SQLite (KSP), Kotlin Coroutines + `StateFlow`, manual `AppContainer` DI, JUnit 4
 
 ## Non-Goals & Deferred
@@ -15,7 +15,6 @@ Out of scope for the current roadmap so phases stay focused:
 - **Cloud Streaming, User Accounts & Analytics:** App is strictly offline and local-first.
 - **Configurable Fade-Out Duration:** Uses a fixed smooth exponential fade-out window; per-session or global fade tuning is deferred.
 - **Video-to-Audio Extraction & DRM Audio:** Imports standard local audio files only.
-- **Bilingual UI Localization:** Uses a clean English interface that renders Burmese Unicode cleanly in track titles and session names; translated UI strings and language switching are deferred.
 
 ## At a Glance
 
@@ -26,6 +25,7 @@ Out of scope for the current roadmap so phases stay focused:
 | 03 | Distraction Check, Hardening & Shared Spec | Verified | [03-distraction-check-hardening-and-shared-spec.md](plans/03-distraction-check-hardening-and-shared-spec.md) |
 | 04 | Custom Track Naming & Import Rename Flow | Verified | [04-custom-track-naming-and-import-rename-flow.md](plans/04-custom-track-naming-and-import-rename-flow.md) |
 | 05 | Intro Skip to Main & v0.2.0 Release Prep | Verified | [05-intro-skip-to-main-and-v0-2-0-release-prep.md](plans/05-intro-skip-to-main-and-v0-2-0-release-prep.md) |
+| 06 | Burmese Language Localization & v0.3.0 Release Prep | Verified | [06-burmese-language-localization-and-v0-3-0-release-prep.md](plans/06-burmese-language-localization-and-v0-3-0-release-prep.md) |
 
 ---
 
@@ -95,3 +95,16 @@ Plan: [05-intro-skip-to-main-and-v0-2-0-release-prep.md](plans/05-intro-skip-to-
   - [x] Update `docs/spec/dhammameditate-shared-spec.md` to v1.1 (Android v0.2.0 parity)
   - [x] Bump `app/build.gradle.kts` to `versionCode = 2` and `versionName = "0.2.0"`
 - [x] Verify phase: `/check verify Intro Skip to Main & v0.2.0 Release Prep`
+
+### 06. Burmese Language Localization & v0.3.0 Release Prep · Verified
+Localize all Android UI copy into English and Burmese with an in-app language switcher (`English` / `မြန်မာ`, defaulting to the device language on first launch) and Western numerals (`0-9`) for timers and durations. All Burmese translations are supplied directly by you via structured prompts—no automatic or machine translation.
+**Done when:** Every user-facing string across all screens, dialogs, validation notices, and playback notifications is extracted cleanly into English and Burmese resources using only your provided Burmese translations; switching between `English` and `မြန်မာ` in-app updates the UI immediately and persists across restarts (defaulting to system locale on first launch); Western digits (`0-9`) remain used for timers and durations with clean Burmese Unicode wrapping/layout across tight controls; `docs/spec/dhammameditate-shared-spec.md` is updated to v1.2 with your canonical English ↔ Burmese glossary and language-switching rules for iOS parity; and `app/build.gradle.kts` is bumped to `versionCode = 3` and `versionName = "0.3.0"`.
+Plan: [06-burmese-language-localization-and-v0-3-0-release-prep.md](plans/06-burmese-language-localization-and-v0-3-0-release-prep.md) · Code: `app/src/main/java/com/dhammameditate/`, `app/src/main/res/values/strings.xml`, `app/src/main/res/values-my/strings.xml`, `app/src/test/java/com/dhammameditate/data/preferences/AppLanguageTest.kt`, `docs/spec/dhammameditate-shared-spec.md`, `app/build.gradle.kts`
+- [x] Architect plan: `/architect Burmese Language Localization & v0.3.0 Release Prep`
+- [x] Build phase: `/develop Burmese Language Localization & v0.3.0 Release Prep`
+  - [x] Add `AppLanguage`, `AppLanguageStore`, `UiText`, `LanguageTogglePill`, and `AppLanguageTest`
+  - [x] Extract all English strings to `res/values/strings.xml`, wire dynamic Compose/ViewModel/Service localization, and mount `LanguageTogglePill`
+  - [x] Collect your Burmese translations via 4 interactive chat batches (zero auto-translation) and write `res/values-my/strings.xml`
+  - [x] Audit Burmese layout/wrapping in tight controls and verify Western digits (`0-9`)
+  - [x] Update `docs/spec/dhammameditate-shared-spec.md` to v1.2 and bump `app/build.gradle.kts` to `versionCode = 3` / `versionName = "0.3.0"`
+- [x] Verify phase: `/check verify Burmese Language Localization & v0.3.0 Release Prep`
