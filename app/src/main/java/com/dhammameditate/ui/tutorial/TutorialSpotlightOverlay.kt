@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -132,12 +133,15 @@ fun TutorialSpotlightOverlay(
                 .pointerInput(state.definition.id, state.currentStepIndex, step.targetId, step.interaction) {
                     val touchSlop = viewConfiguration.touchSlop
                     awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Initial
+                        )
                         down.consume()
                         var isTap = true
                         var lastPosition = down.position
                         while (true) {
-                            val event = awaitPointerEvent()
+                            val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                             val tracked = event.changes.firstOrNull { it.id == down.id }
                             if (tracked != null) {
                                 if ((tracked.position - down.position).getDistance() > touchSlop) {

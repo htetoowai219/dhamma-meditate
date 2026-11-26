@@ -290,6 +290,16 @@ class MainActivity : ComponentActivity() {
                                     selectedTab = current.tab,
                                     onSelectTab = { tab ->
                                         destination = AppDestination.Home(tab)
+                                        val tutorial = activeTutorial
+                                        if (
+                                            tab == HomeTab.LIBRARY &&
+                                            tutorial?.currentStep?.targetId == TutorialTargetId.NAV_LIBRARY_TAB
+                                        ) {
+                                            activeTutorial = TutorialEngine.onTargetTapped(
+                                                tutorial,
+                                                TutorialTargetId.NAV_LIBRARY_TAB
+                                            )
+                                        }
                                     }
                                 )
                             }
@@ -312,6 +322,13 @@ class MainActivity : ComponentActivity() {
                                                     returnToPlayerSessionId = null,
                                                     instanceId = instanceId
                                                 )
+                                                val tutorial = activeTutorial
+                                                if (tutorial?.currentStep?.targetId == TutorialTargetId.SESSIONS_NEW_BUTTON) {
+                                                    activeTutorial = TutorialEngine.onTargetTapped(
+                                                        tutorial,
+                                                        TutorialTargetId.SESSIONS_NEW_BUTTON
+                                                    )
+                                                }
                                             },
                                             onOpenSession = { sessionId ->
                                                 destination = AppDestination.SessionPlayer(sessionId)
