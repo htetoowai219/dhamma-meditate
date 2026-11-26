@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,6 +52,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.dhammameditate.R
 import com.dhammameditate.ui.theme.CardSurface
@@ -83,18 +83,20 @@ fun TutorialSpotlightOverlay(
     val density = LocalDensity.current
     val step = state.currentStep
     var overlayOriginInRoot by remember { mutableStateOf(Offset.Zero) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
     val latestOnTargetTapped by rememberUpdatedState(onTargetTapped)
     val latestOnConfirmStep by rememberUpdatedState(onConfirmStep)
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .onGloballyPositioned { coords ->
                 overlayOriginInRoot = coords.positionInRoot()
+                containerSize = coords.size
             }
     ) {
-        val containerWidthPx = constraints.maxWidth.toFloat()
-        val containerHeightPx = constraints.maxHeight.toFloat()
+        val containerWidthPx = containerSize.width.toFloat()
+        val containerHeightPx = containerSize.height.toFloat()
         val cutoutPaddingPx = with(density) { 6.dp.toPx() }
         val cutoutRadiusPx = with(density) { 16.dp.toPx() }
         val strokeWidthPx = with(density) { 2.dp.toPx() }
