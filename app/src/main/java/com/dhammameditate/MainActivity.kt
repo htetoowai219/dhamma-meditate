@@ -62,7 +62,21 @@ import com.dhammameditate.ui.theme.LightNeutral
 import com.dhammameditate.ui.theme.MonasticMaroon
 import com.dhammameditate.ui.theme.NavActivePill
 import com.dhammameditate.ui.theme.OutlineNeutral
+import com.dhammameditate.ui.tutorial.LocalTutorialAnchorRegistry
+import com.dhammameditate.ui.tutorial.TutorialAnchorRegistry
+import com.dhammameditate.ui.tutorial.TutorialDefinition
+import com.dhammameditate.ui.tutorial.TutorialEngine
+import com.dhammameditate.ui.tutorial.TutorialId
+import com.dhammameditate.ui.tutorial.TutorialRegistry
+import com.dhammameditate.ui.tutorial.TutorialSessionState
+import com.dhammameditate.ui.tutorial.TutorialSpotlightOverlay
+import com.dhammameditate.ui.tutorial.TutorialStartRoute
+import com.dhammameditate.ui.tutorial.TutorialTargetId
+import com.dhammameditate.ui.tutorial.TutorialTopicListDialog
+import com.dhammameditate.ui.tutorial.TutorialWelcomeDialog
+import com.dhammameditate.ui.tutorial.tutorialTarget
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 private enum class HomeTab {
     SESSIONS,
@@ -123,6 +137,27 @@ private val AppDestinationSaver = listSaver<AppDestination, String>(
     }
 )
 
+private val TutorialSessionStateSaver = listSaver<TutorialSessionState?, String>(
+    save = { state ->
+        if (state == null) {
+            emptyList()
+        } else {
+            listOf(state.definition.id.name, state.currentStepIndex.toString())
+        }
+    },
+    restore = { list ->
+        val idName = list.getOrNull(0) ?: return@listSaver null
+        val stepIndex = list.getOrNull(1)?.toIntOrNull() ?: return@listSaver null
+        val tutorialId = runCatching { TutorialId.valueOf(idName) }.getOrNull() ?: return@listSaver null
+        val definition = TutorialRegistry.findById(tutorialId) ?: return@listSaver null
+        if (stepIndex in definition.steps.indices) {
+            TutorialSessionState(definition = definition, currentStepIndex = stepIndex)
+        } else {
+            null
+        }
+    }
+)
+
 private fun activePlaybackDestination(playback: PlaybackSnapshot): AppDestination? {
     if (!playback.isActive) return null
     val sessionId = playback.activeSessionId
@@ -156,6 +191,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val currentLanguage by container.appLanguageStore.language.collectAsStateWithLifecycle()
+            val hasSeenTutorialOffer by container.tutorialPreferencesStore.hasSeenTutorialOffer.collectAsStateWithLifecycle()
+            val hasLibraryTracks by remember(container.trackRepository) {
+                container.trackRepository.observeTracks().map { it.isNotEmpty() }
+            }.collectAsStateWithLifecycle(initialValue = false)
+            val tutorialAnchorRegistry = remember { TutorialAnchorRegistry() }
             val localizedContext = remember(this@MainActivity, currentLanguage) {
                 this@MainActivity.withAppLanguage(currentLanguage)
             }
@@ -164,7 +204,8 @@ class MainActivity : ComponentActivity() {
                 LocalActivityResultRegistryOwner provides this@MainActivity,
                 LocalAppLocalizedContext provides localizedContext,
                 LocalContext provides localizedContext,
-                LocalConfiguration provides localizedContext.resources.configuration
+                LocalConfiguration provides localizedContext.resources.configuration,
+                LocalTutorialAnchorRegistry provides tutorialAnchorRegistry
             ) {
             DhammaMeditateTheme {
                 var destination by rememberSaveable(stateSaver = AppDestinationSaver) {
@@ -175,11 +216,44 @@ class MainActivity : ComponentActivity() {
                 }
                 var editorCounter by rememberSaveable { mutableLongStateOf(1L) }
                 var askedNotificationPermission by rememberSaveable { mutableStateOf(false) }
+                var showTutorialWelcomeDialog by remember { mutableStateOf(false) }
+                var showTutorialTopicList by rememberSaveable { mutableStateOf(false) }
+                var activeTutorial by rememberSaveable(stateSaver = TutorialSessionStateSaver) {
+                    mutableStateOf<TutorialSessionState?>(null)
+                }
+
+                val isActivePlaybackDestination = destination is AppDestination.SessionPlayer ||
+                    destination is AppDestination.QuickTrackPlayer
+
+                LaunchedEffect(hasSeenTutorialOffer, isActivePlaybackDestination) {
+                    if (
+                        TutorialEngine.shouldShowFirstTimeOffer(
+                            hasSeenOffer = hasSeenTutorialOffer,
+                            hasActivePlayback = isActivePlaybackDestination,
+                            hasActiveTutorial = activeTutorial != null
+                        ) && !showTutorialTopicList
+                    ) {
+                        showTutorialWelcomeDialog = true
+                    }
+                }
 
                 val openActivePlayback: () -> Unit = {
                     activePlaybackDestination(container.playbackClient.state.value)?.let { target ->
+                        activeTutorial = null
+                        showTutorialWelcomeDialog = false
+                        showTutorialTopicList = false
                         destination = target
                     }
+                }
+
+                val startTutorial: (TutorialDefinition) -> Unit = { definition ->
+                    showTutorialWelcomeDialog = false
+                    showTutorialTopicList = false
+                    destination = when (definition.startRoute) {
+                        TutorialStartRoute.HOME_SESSIONS -> AppDestination.Home(HomeTab.SESSIONS)
+                        TutorialStartRoute.HOME_LIBRARY -> AppDestination.Home(HomeTab.LIBRARY)
+                    }
+                    activeTutorial = TutorialEngine.start(definition)
                 }
 
                 LaunchedEffect(Unit) {
@@ -190,6 +264,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                Box(modifier = Modifier.fillMaxSize()) {
                 when (val current = destination) {
                     is AppDestination.Home -> {
                         val sessionsViewModel: SessionsViewModel = viewModel(
@@ -249,7 +324,8 @@ class MainActivity : ComponentActivity() {
                                                     instanceId = instanceId
                                                 )
                                             },
-                                            onOpenActivePlayback = openActivePlayback
+                                            onOpenActivePlayback = openActivePlayback,
+                                            onOpenTutorials = { showTutorialTopicList = true }
                                         )
                                     }
 
@@ -261,7 +337,8 @@ class MainActivity : ComponentActivity() {
                                             onOpenTrack = { trackId ->
                                                 destination = AppDestination.QuickTrackPlayer(trackId)
                                             },
-                                            onOpenActivePlayback = openActivePlayback
+                                            onOpenActivePlayback = openActivePlayback,
+                                            onOpenTutorials = { showTutorialTopicList = true }
                                         )
                                     }
                                 }
@@ -281,6 +358,7 @@ class MainActivity : ComponentActivity() {
                         )
                         SessionEditorScreen(
                             viewModel = editorViewModel,
+                            activeTutorialTargetId = activeTutorial?.currentStep?.targetId,
                             onBack = {
                                 destination = current.returnToPlayerSessionId?.let {
                                     AppDestination.SessionPlayer(it)
@@ -344,6 +422,70 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+
+                activeTutorial?.let { tutorialState ->
+                    TutorialSpotlightOverlay(
+                        state = tutorialState,
+                        anchorRegistry = tutorialAnchorRegistry,
+                        hasLibraryTracks = hasLibraryTracks,
+                        onTargetTapped = { targetId ->
+                            val currentState = activeTutorial ?: return@TutorialSpotlightOverlay
+                            if (currentState.currentStep.targetId != targetId) {
+                                return@TutorialSpotlightOverlay
+                            }
+                            when (targetId) {
+                                TutorialTargetId.NAV_LIBRARY_TAB -> {
+                                    destination = AppDestination.Home(HomeTab.LIBRARY)
+                                }
+
+                                TutorialTargetId.SESSIONS_NEW_BUTTON -> {
+                                    val instanceId = editorCounter++
+                                    destination = AppDestination.SessionEditor(
+                                        sessionId = null,
+                                        returnToPlayerSessionId = null,
+                                        instanceId = instanceId
+                                    )
+                                }
+
+                                TutorialTargetId.LIBRARY_IMPORT_BUTTON,
+                                TutorialTargetId.EDITOR_INTRO_CARD,
+                                TutorialTargetId.EDITOR_MAIN_CARD,
+                                TutorialTargetId.EDITOR_TIMER_CARD,
+                                TutorialTargetId.EDITOR_SAVE_BUTTON -> Unit
+                            }
+                            activeTutorial = TutorialEngine.onTargetTapped(currentState, targetId)
+                        },
+                        onConfirmStep = {
+                            activeTutorial = activeTutorial?.let(TutorialEngine::confirmCurrentStep)
+                        },
+                        onSkip = {
+                            activeTutorial = TutorialEngine.skip()
+                        }
+                    )
+                }
+
+                if (showTutorialWelcomeDialog && !hasSeenTutorialOffer && !isActivePlaybackDestination) {
+                    TutorialWelcomeDialog(
+                        onViewTutorials = {
+                            container.tutorialPreferencesStore.markOfferSeen()
+                            showTutorialWelcomeDialog = false
+                            showTutorialTopicList = true
+                        },
+                        onSkip = {
+                            container.tutorialPreferencesStore.markOfferSeen()
+                            showTutorialWelcomeDialog = false
+                        }
+                    )
+                }
+
+                if (showTutorialTopicList) {
+                    TutorialTopicListDialog(
+                        tutorials = TutorialRegistry.all,
+                        onSelectTutorial = startTutorial,
+                        onDismiss = { showTutorialTopicList = false }
+                    )
+                }
+                }
             }
             }
         }
@@ -404,6 +546,7 @@ private fun HomeBottomNavigationBar(
             NavigationBarItem(
                 selected = selectedTab == HomeTab.LIBRARY,
                 onClick = { onSelectTab(HomeTab.LIBRARY) },
+                modifier = Modifier.tutorialTarget(TutorialTargetId.NAV_LIBRARY_TAB),
                 icon = {
                     Icon(
                         imageVector = Icons.Outlined.LibraryMusic,

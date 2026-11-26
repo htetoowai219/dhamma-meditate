@@ -83,6 +83,9 @@ import com.dhammameditate.ui.theme.OutlineNeutral
 import com.dhammameditate.ui.theme.PureWhite
 import com.dhammameditate.ui.theme.Saffron
 import com.dhammameditate.ui.theme.WhiteMuted
+import com.dhammameditate.ui.tutorial.TutorialLauncherButton
+import com.dhammameditate.ui.tutorial.TutorialTargetId
+import com.dhammameditate.ui.tutorial.tutorialTarget
 
 @Composable
 fun LibraryScreen(
@@ -90,7 +93,8 @@ fun LibraryScreen(
     currentLanguage: AppLanguage,
     onSelectLanguage: (AppLanguage) -> Unit,
     onOpenTrack: (String) -> Unit,
-    onOpenActivePlayback: () -> Unit
+    onOpenActivePlayback: () -> Unit,
+    onOpenTutorials: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -172,44 +176,55 @@ fun LibraryScreen(
             color = LightNeutral,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Button(
-                onClick = {
-                    documentPickerLauncher.launch(arrayOf("audio/*", "application/ogg"))
-                },
-                enabled = !uiState.isImporting,
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Saffron,
-                    contentColor = PureWhite,
-                    disabledContainerColor = DeepSaffron,
-                    disabledContentColor = PureWhite
-                ),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 0.dp,
-                    disabledElevation = 0.dp
-                ),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .height(54.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (uiState.isImporting) {
-                    CircularProgressIndicator(
-                        color = PureWhite,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = stringResource(R.string.library_importing),
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.library_import_button),
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                TutorialLauncherButton(
+                    onClick = onOpenTutorials,
+                    modifier = Modifier.align(Alignment.End)
+                )
+                Button(
+                    onClick = {
+                        documentPickerLauncher.launch(arrayOf("audio/*", "application/ogg"))
+                    },
+                    enabled = !uiState.isImporting,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Saffron,
+                        contentColor = PureWhite,
+                        disabledContainerColor = DeepSaffron,
+                        disabledContentColor = PureWhite
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp,
+                        disabledElevation = 0.dp
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .tutorialTarget(TutorialTargetId.LIBRARY_IMPORT_BUTTON)
+                ) {
+                    if (uiState.isImporting) {
+                        CircularProgressIndicator(
+                            color = PureWhite,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = stringResource(R.string.library_importing),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.library_import_button),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
                 }
             }
         }

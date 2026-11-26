@@ -1,6 +1,6 @@
 # DhammaMeditate — Normative Cross-Platform Behavior Specification
 
-- **Version:** 1.2 (Android v0.3.0 Reference Parity)
+- **Version:** 1.3 (Android v0.4.0 Reference Parity)
 - **Status:** Normative Source of Truth
 - **Reference Implementation:** Native Android (Kotlin, Jetpack Compose, Media3 ExoPlayer + MediaSessionService, Room SQLite v2)
 - **Target Parity Platforms:** Android (reference) & Native iOS (Swift, SwiftUI, AVFoundation + `AVAudioSession` + `MPRemoteCommandCenter` + SQLite/GRDB/SwiftData)
@@ -464,11 +464,11 @@ Burmese Unicode script (e.g., `တရားတော်`, `မေတ္တာဘ
 - **Tight Controls:** Side-by-side buttons (such as the 50/50 `Skip to Main` | `Stop & Reset` row during Intro playback) MUST allow up to 2 centered lines (`heightIn(min = 50dp)` / flexible min-height in SwiftUI) so Burmese labels never clip on narrow screens.
 
 ### 10.4 Canonical English ↔ Burmese Terminology & String Catalog
-The complete 170-key English and Burmese string catalog lives in:
+The complete 209-key English and Burmese string catalog lives in:
 - `app/src/main/res/values/strings.xml`
 - `app/src/main/res/values-my/strings.xml`
 
-The iOS port MUST import these exact 170 keys and Burmese strings verbatim into `Localizable.xcstrings`. Core domain terms:
+The iOS port MUST import these exact 209 keys and Burmese strings verbatim into `Localizable.xcstrings`. Core domain terms:
 
 | Concept | English | Canonical Burmese (`my`) |
 |---|---|---|
@@ -484,3 +484,44 @@ The iOS port MUST import these exact 170 keys and Burmese strings verbatim into 
 | Save / Cancel / Delete | `Save` / `Cancel` / `Delete` | `သိမ်းဆည်းမည်` / `မလုပ်ပါ` / `ဖျက်မည်` |
 | Preset Minutes / Full | `{1}m` / `Full` | `{1} မိနစ်` / `အပြည့်` |
 | Distraction Prompt | `Silence Distractions?` / `Continue anyway` | `အနှောင့်အယှက်များ ပိတ်ထားမည်လား?` / `ဆက်လက်စတင်မည်` |
+| Tutorials Launcher / Title | `Tutorials` / `Guided Tutorials` | `အသုံးပြုနည်း` / `အသုံးပြုနည်း လမ်းညွှန်များ` |
+| Tutorial Actions | `Skip` / `Next` / `Got it` | `ကျော်မည်` / `နောက်တစ်ဆင့်` / `နားလည်ပါပြီ` |
+| Tutorial Step Progress | `Step {1} / {2}` | `အဆင့် {1} / {2}` |
+| Tutorial Topics | `How to add an audio` / `How to create a session` | `တရားဖိုင် ထည့်သွင်းနည်း` / `တရားချိန် ဖန်တီးနည်း` |
+
+---
+
+## 11. Guided Tutorials (Interactive Spotlight Walkthroughs)
+
+### 11.1 First-Time Auto-Offer & Persistence
+- **Preference key:** `"tutorial_offer_seen"` (`Boolean`, default `false`) stored in:
+  - **Android:** `SharedPreferences` (`"dhamma_meditate_prefs"`).
+  - **iOS:** `UserDefaults.standard`.
+- **Auto-offer gate:** Show the flat welcome dialog (`Welcome to DhammaMeditate`) automatically ONLY when:
+  1. `hasSeenOffer == false`, AND
+  2. No playback session/track screen is currently active (`!hasActivePlayback`), AND
+  3. No tutorial walkthrough is currently running (`!hasActiveTutorial`).
+- **Dismissal:** Tapping **View Tutorials**, **Skip**, or dismissing the dialog immediately persists `tutorial_offer_seen = true` so the user is never prompted again on subsequent launches.
+
+### 11.2 On-Demand Launcher & Topic List
+- **Launcher placement:** A compact flat pill button (`Tutorials` / `အသုံးပြုနည်း`, `NavActivePill` fill, `1dp` `OutlineNeutral` border, `MonasticMaroon` icon + text, `12dp` radius) sits right-aligned directly above the anchored bottom primary CTA on both the `Sessions` (`New Session`) and `Library` (`Import Audio`) screens.
+- **Topic list dialog:** Opens a flat modal listing all registered tutorials with their title, 1-line description, and step count pill formatted with Western ASCII digits (`0-9`).
+
+### 11.3 Extensible Tutorial Registry & Walkthroughs
+All walkthroughs are driven by a data registry (`TutorialId`, `TutorialTargetId`, `TutorialStartRoute`, `TutorialStepInteraction = TAP_TARGET | CONFIRM_ONLY`, optional `emptyLibraryNoteRes`).
+
+| Tutorial ID | Start Route | Steps |
+|---|---|---|
+| `ADD_AUDIO` | `HOME_SESSIONS` | 1. `NAV_LIBRARY_TAB` (`TAP_TARGET` → switches to Library tab)<br>2. `LIBRARY_IMPORT_BUTTON` (`CONFIRM_ONLY` → `Got it`, ends without opening OS file picker) |
+| `CREATE_SESSION` | `HOME_SESSIONS` | 1. `SESSIONS_NEW_BUTTON` (`TAP_TARGET` → opens live `SessionEditorScreen`)<br>2. `EDITOR_INTRO_CARD` (`CONFIRM_ONLY` → `Next`, auto-scrolls into view)<br>3. `EDITOR_MAIN_CARD` (`CONFIRM_ONLY` → `Next`, auto-scrolls into view; displays flat `SaffronTintSurface` empty-Library note when Library has 0 tracks)<br>4. `EDITOR_TIMER_CARD` (`CONFIRM_ONLY` → `Next`, auto-scrolls into view)<br>5. `EDITOR_SAVE_BUTTON` (`CONFIRM_ONLY` → `Got it`, reminds user to enter Session Name at the top; dismisses overlay and stays on `SessionEditorScreen` with zero fake saves) |
+
+### 11.4 Spotlight Overlay & Non-Destructive Invariants
+- **Visual styling:** Flat `InkPrimary` (`#1F1F1F`) backdrop at `68%` alpha with a clear rounded cutout (`16dp` corner radius, `6dp` padding around the target bounds, `2dp` `Saffron` border) and an auto-positioned flat `CardSurface` tooltip (`1dp` `OutlineNeutral` border, `0dp` elevation) placed above targets in the lower half of the viewport and below targets in the upper half.
+- **Interaction & hit-testing:**
+  - Taps outside the cutout are consumed without affecting underlying UI.
+  - On `TAP_TARGET` steps, tapping inside the cutout triggers the mapped navigation action and advances the step.
+  - On `CONFIRM_ONLY` steps, tapping the primary button (`Next` for non-final steps, `Got it` for the final step) or tapping inside the cutout advances/finishes the step without invoking destructive or external actions (never opens OS file pickers or saves synthetic sessions).
+  - Tapping **Skip** or system back immediately terminates the active tutorial on the current screen.
+  - Entering active playback (e.g., via notification or active session banner) clears any active tutorial overlay.
+- **Auto-scrolling:** Scrollable screens (`SessionEditorScreen`) scroll each active target card into view automatically (`BringIntoViewRequester` on Android; `ScrollViewReader.scrollTo(...)` on iOS) so the spotlight cutout stays aligned without manual scrolling.
+- **Western numerals:** `Step X / N` (`အဆင့် X / N`) and step counts MUST always format numbers with `Locale.US` / `en_US_POSIX` (`0-9`).

@@ -2,8 +2,11 @@ package com.dhammameditate.ui.editor
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +55,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,18 +89,34 @@ import com.dhammameditate.ui.theme.OutlineNeutral
 import com.dhammameditate.ui.theme.PureWhite
 import com.dhammameditate.ui.theme.Saffron
 import com.dhammameditate.ui.theme.SaffronTintSurface
+import com.dhammameditate.ui.tutorial.TutorialTargetId
+import com.dhammameditate.ui.tutorial.tutorialTarget
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SessionEditorScreen(
     viewModel: SessionEditorViewModel,
+    activeTutorialTargetId: TutorialTargetId? = null,
     onBack: () -> Unit,
     onSaved: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var activePickerZone by remember { mutableStateOf<QueueZone?>(null) }
+    val introBringIntoView = remember { BringIntoViewRequester() }
+    val mainBringIntoView = remember { BringIntoViewRequester() }
+    val timerBringIntoView = remember { BringIntoViewRequester() }
 
-    BackHandler(enabled = !uiState.isSaving, onBack = onBack)
+    LaunchedEffect(activeTutorialTargetId, uiState.isLoading, uiState.sessionNotFound) {
+        if (uiState.isLoading || uiState.sessionNotFound) return@LaunchedEffect
+        when (activeTutorialTargetId) {
+            TutorialTargetId.EDITOR_INTRO_CARD -> introBringIntoView.bringIntoView()
+            TutorialTargetId.EDITOR_MAIN_CARD -> mainBringIntoView.bringIntoView()
+            TutorialTargetId.EDITOR_TIMER_CARD -> timerBringIntoView.bringIntoView()
+            else -> Unit
+        }
+    }
+
+    BackHandler(enabled = !uiState.isSaving && activeTutorialTargetId == null, onBack = onBack)
 
     Column(
         modifier = Modifier
@@ -238,7 +258,10 @@ fun SessionEditorScreen(
                         onAddTrackClick = { activePickerZone = QueueZone.INTRO },
                         onMoveUp = { index -> viewModel.moveTrackUp(QueueZone.INTRO, index) },
                         onMoveDown = { index -> viewModel.moveTrackDown(QueueZone.INTRO, index) },
-                        onRemove = { index -> viewModel.removeTrack(QueueZone.INTRO, index) }
+                        onRemove = { index -> viewModel.removeTrack(QueueZone.INTRO, index) },
+                        modifier = Modifier
+                            .bringIntoViewRequester(introBringIntoView)
+                            .tutorialTarget(TutorialTargetId.EDITOR_INTRO_CARD)
                     )
 
                     // 3. Main Queue Card (Required · Timed)
@@ -255,7 +278,10 @@ fun SessionEditorScreen(
                         onAddTrackClick = { activePickerZone = QueueZone.MAIN },
                         onMoveUp = { index -> viewModel.moveTrackUp(QueueZone.MAIN, index) },
                         onMoveDown = { index -> viewModel.moveTrackDown(QueueZone.MAIN, index) },
-                        onRemove = { index -> viewModel.removeTrack(QueueZone.MAIN, index) }
+                        onRemove = { index -> viewModel.removeTrack(QueueZone.MAIN, index) },
+                        modifier = Modifier
+                            .bringIntoViewRequester(mainBringIntoView)
+                            .tutorialTarget(TutorialTargetId.EDITOR_MAIN_CARD)
                     )
 
                     // 4. Meditation Timer Card (Validated against combined Main Queue)
@@ -268,7 +294,10 @@ fun SessionEditorScreen(
                         enabled = uiState.mainItems.isNotEmpty(),
                         onSelectPreset = viewModel::selectPresetMinutes,
                         onSelectFull = viewModel::selectFullMainQueue,
-                        onCustomMinutesChanged = viewModel::onCustomMinutesChanged
+                        onCustomMinutesChanged = viewModel::onCustomMinutesChanged,
+                        modifier = Modifier
+                            .bringIntoViewRequester(timerBringIntoView)
+                            .tutorialTarget(TutorialTargetId.EDITOR_TIMER_CARD)
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -298,6 +327,7 @@ fun SessionEditorScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 14.dp)
                                 .height(54.dp)
+                                .tutorialTarget(TutorialTargetId.EDITOR_SAVE_BUTTON)
                         ) {
                             if (uiState.isSaving) {
                                 CircularProgressIndicator(
@@ -454,13 +484,14 @@ private fun QueueZoneCard(
     onAddTrackClick: () -> Unit,
     onMoveUp: (Int) -> Unit,
     onMoveDown: (Int) -> Unit,
-    onRemove: (Int) -> Unit
+    onRemove: (Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         color = CardSurface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, OutlineNeutral),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
@@ -651,13 +682,14 @@ private fun SessionTimerCard(
     enabled: Boolean,
     onSelectPreset: (Int) -> Unit,
     onSelectFull: () -> Unit,
-    onCustomMinutesChanged: (String) -> Unit
+    onCustomMinutesChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         color = CardSurface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, OutlineNeutral),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .alpha(if (enabled) 1f else 0.6f)
     ) {

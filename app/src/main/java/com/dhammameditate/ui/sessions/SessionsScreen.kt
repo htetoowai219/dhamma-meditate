@@ -68,6 +68,9 @@ import com.dhammameditate.ui.theme.PureWhite
 import com.dhammameditate.ui.theme.Saffron
 import com.dhammameditate.ui.theme.SaffronTintSurface
 import com.dhammameditate.ui.theme.WhiteMuted
+import com.dhammameditate.ui.tutorial.TutorialLauncherButton
+import com.dhammameditate.ui.tutorial.TutorialTargetId
+import com.dhammameditate.ui.tutorial.tutorialTarget
 
 @Composable
 fun SessionsScreen(
@@ -77,7 +80,8 @@ fun SessionsScreen(
     onNewSession: () -> Unit,
     onOpenSession: (String) -> Unit,
     onEditSession: (String) -> Unit,
-    onOpenActivePlayback: () -> Unit
+    onOpenActivePlayback: () -> Unit,
+    onOpenTutorials: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var pendingDeleteSession by remember { mutableStateOf<SessionWithQueues?>(null) }
@@ -152,23 +156,34 @@ fun SessionsScreen(
             color = LightNeutral,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Button(
-                onClick = onNewSession,
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Saffron,
-                    contentColor = PureWhite
-                ),
-                elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .height(54.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.sessions_new_button),
-                    style = MaterialTheme.typography.labelLarge
+                TutorialLauncherButton(
+                    onClick = onOpenTutorials,
+                    modifier = Modifier.align(Alignment.End)
                 )
+                Button(
+                    onClick = onNewSession,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Saffron,
+                        contentColor = PureWhite
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .tutorialTarget(TutorialTargetId.SESSIONS_NEW_BUTTON)
+                ) {
+                    Text(
+                        text = stringResource(R.string.sessions_new_button),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
     }

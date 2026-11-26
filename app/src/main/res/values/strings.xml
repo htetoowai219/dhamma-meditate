@@ -198,4 +198,46 @@
     <string name="playback_error_session_invalid_timer">Session timer duration is invalid. Edit the session to set a timer.</string>
     <string name="playback_error_missing_intro_track">Missing or unreadable Intro track: \"%1$s\". Re-import it or edit the session.</string>
     <string name="playback_error_missing_main_track">Missing or unreadable Main track: \"%1$s\". Re-import it or edit the session.</string>
+
+    <string name="tutorial_launcher_button">Tutorials</string>
+    <string name="tutorial_launcher_cd">Open guided tutorials</string>
+    <string name="tutorial_welcome_title">Welcome to DhammaMeditate</string>
+    <string name="tutorial_welcome_message">Would you like a quick guided walkthrough? You can replay tutorials anytime from the Tutorials button.</string>
+    <string name="tutorial_welcome_view">View Tutorials</string>
+    <string name="tutorial_welcome_skip">Skip</string>
+    <string name="tutorial_list_title">Guided Tutorials</string>
+    <string name="tutorial_list_subtitle">Choose a walkthrough to follow step by step on screen.</string>
+    <string name="tutorial_list_steps_one">%1$s step</string>
+    <string name="tutorial_list_steps_other">%1$s steps</string>
+    <string name="tutorial_list_close">Close</string>
+    <string name="tutorial_step_progress">Step %1$s / %2$s</string>
+    <string name="tutorial_action_skip">Skip</string>
+    <string name="tutorial_action_next">Next</string>
+    <string name="tutorial_action_got_it">Got it</string>
+    <string name="tutorial_hint_next">Tap Next to continue.</string>
+
+    <string name="tutorial_add_audio_title">How to add an audio</string>
+    <string name="tutorial_add_audio_description">Learn where to find your Library and import local audio files.</string>
+    <string name="tutorial_add_audio_step1_title">Open your Library</string>
+    <string name="tutorial_add_audio_step1_body">All imported Dhamma talks and meditation tracks are stored in the Library tab.</string>
+    <string name="tutorial_add_audio_step1_hint">Tap the highlighted Library tab below to continue.</string>
+    <string name="tutorial_add_audio_step2_title">Import local audio files</string>
+    <string name="tutorial_add_audio_step2_body">Tap Import Audio whenever you want to add MP3, M4A, WAV, FLAC, or OGG files from your device. They stay stored offline inside the app.</string>
+    <string name="tutorial_add_audio_step2_hint">Tap Got it to finish this walkthrough.</string>
+
+    <string name="tutorial_create_session_title">How to create a session</string>
+    <string name="tutorial_create_session_description">Learn how to combine Intro tracks, Main tracks, and a meditation timer into a reusable session.</string>
+    <string name="tutorial_create_session_step1_title">Create a new session</string>
+    <string name="tutorial_create_session_step1_body">Start here whenever you want to build a reusable meditation session.</string>
+    <string name="tutorial_create_session_step1_hint">Tap New Session below to open the Session Editor.</string>
+    <string name="tutorial_create_session_step2_title">Add optional Intro tracks</string>
+    <string name="tutorial_create_session_step2_body">Intro tracks (such as chants or preparation) play first in order before the meditation timer begins.</string>
+    <string name="tutorial_create_session_step3_title">Add required Main tracks</string>
+    <string name="tutorial_create_session_step3_body">Every session needs at least one Main track. The meditation countdown runs while your Main Queue plays.</string>
+    <string name="tutorial_create_session_empty_library_note">Your Library has no audio yet. Import at least one track in the Library tab before adding tracks here.</string>
+    <string name="tutorial_create_session_step4_title">Set your meditation timer</string>
+    <string name="tutorial_create_session_step4_body">Choose a preset or enter custom minutes up to your combined Main Queue duration.</string>
+    <string name="tutorial_create_session_step5_title">Name and save your session</string>
+    <string name="tutorial_create_session_step5_body">Enter a Session Name at the top of this screen, then tap Save Session once your Main Queue and timer are ready.</string>
+    <string name="tutorial_create_session_step5_hint">Tap Got it to finish and start building your session.</string>
 </resources>

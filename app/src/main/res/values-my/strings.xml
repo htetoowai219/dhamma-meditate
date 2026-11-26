@@ -198,4 +198,49 @@
     <string name="playback_error_session_invalid_timer">တရားထိုင်ကြာချိန် မမှန်ကန်ပါ။ တရားချိန်ကို ပြုပြင်၍ ကြာချိန်သတ်မှတ်ပါ။</string>
     <string name="playback_error_missing_intro_track">ပရိကံတရား \"%1$s\" ပျောက်ဆုံးနေသည် (သို့) ဖတ်၍မရပါ။ ပြန်လည်ထည့်သွင်းပါ (သို့) တရားချိန်ကို ပြုပြင်ပါ။</string>
     <string name="playback_error_missing_main_track">ကမ္မဋ္ဌာန်းတရား \"%1$s\" ပျောက်ဆုံးနေသည် (သို့) ဖတ်၍မရပါ။ ပြန်လည်ထည့်သွင်းပါ (သို့) တရားချိန်ကို ပြုပြင်ပါ။</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 5: Guided Tutorials (Phase 07 + Phase 08)                     -->
+    <!-- =================================================================== -->
+    <string name="tutorial_launcher_button">အသုံးပြုနည်း</string>
+    <string name="tutorial_launcher_cd">အသုံးပြုနည်းလမ်းညွှန်များ ဖွင့်မည်</string>
+    <string name="tutorial_welcome_title">တရားဖော် မှ ကြိုဆိုပါသည်</string>
+    <string name="tutorial_welcome_message">အသုံးပြုနည်း လမ်းညွှန်ကို အတိုချုံး ကြည့်ရှုလိုပါသလား? အသုံးပြုနည်း ခလုတ်မှတစ်ဆင့် အချိန်မရွေး ပြန်လည်ကြည့်ရှုနိုင်ပါသည်။</string>
+    <string name="tutorial_welcome_view">အသုံးပြုနည်း ကြည့်မည်</string>
+    <string name="tutorial_welcome_skip">ကျော်မည်</string>
+    <string name="tutorial_list_title">အသုံးပြုနည်း လမ်းညွှန်များ</string>
+    <string name="tutorial_list_subtitle">လမ်းညွှန်တစ်ခုကို ရွေးချယ်ပါ</string>
+    <string name="tutorial_list_steps_one">အဆင့် %1$s ဆင့်</string>
+    <string name="tutorial_list_steps_other">အဆင့် %1$s ဆင့်</string>
+    <string name="tutorial_list_close">ပိတ်မည်</string>
+    <string name="tutorial_step_progress">အဆင့် %1$s / %2$s</string>
+    <string name="tutorial_action_skip">ကျော်မည်</string>
+    <string name="tutorial_action_next">နောက်တစ်ဆင့်</string>
+    <string name="tutorial_action_got_it">နားလည်ပါပြီ</string>
+    <string name="tutorial_hint_next">ဆက်သွားရန် \"နောက်တစ်ဆင့်\" ကို နှိပ်ပါ။</string>
+
+    <string name="tutorial_add_audio_title">တရားဖိုင် ထည့်သွင်းနည်း</string>
+    <string name="tutorial_add_audio_description">တရားများ စာမျက်နှာသို့ သွား၍ ဖုန်းထဲရှိ အသံဖိုင်များ ထည့်သွင်းနည်းကို လေ့လာပါ။</string>
+    <string name="tutorial_add_audio_step1_title">တရားများ စာမျက်နှာကို ဖွင့်ပါ</string>
+    <string name="tutorial_add_audio_step1_body">ထည့်သွင်းထားသော တရားတော်များနှင့် တရားထိုင်အသံဖိုင်အားလုံးကို \"တရားများ\" စာမျက်နှာတွင် သိမ်းဆည်းထားပါသည်။</string>
+    <string name="tutorial_add_audio_step1_hint">ဆက်သွားရန် အောက်ဘက်ရှိ \"တရားများ\" ကို နှိပ်ပါ။</string>
+    <string name="tutorial_add_audio_step2_title">အသံဖိုင်များ ထည့်သွင်းပါ</string>
+    <string name="tutorial_add_audio_step2_body">ဖုန်းထဲရှိ အသံဖိုင်များကို ထည့်သွင်းလိုပါက \"တရားဖိုင်ထည့်မည်\" ကို နှိပ်ပါ။ ထည့်သွင်းနိုင်သော format များ : MP3, M4A, WAV, FLAC, OGG</string>
+    <string name="tutorial_add_audio_step2_hint">လမ်းညွှန်ကို အဆုံးသတ်ရန် \"နားလည်ပါပြီ\" ကို နှိပ်ပါ။</string>
+
+    <string name="tutorial_create_session_title">တရားချိန် ဖန်တီးနည်း</string>
+    <string name="tutorial_create_session_description">ပရိကံတရား၊ ကမ္မဋ္ဌာန်းတရားနှင့် တရားထိုင်ကြာချိန်တို့ကို ပေါင်းစပ်၍ တရားချိန်တစ်ခု ဖန်တီးနည်းကို လေ့လာပါ။</string>
+    <string name="tutorial_create_session_step1_title">တရားချိန် အသစ် ဖန်တီးပါ</string>
+    <string name="tutorial_create_session_step1_body">အမြဲပြန်လည်အသုံးပြုနိုင်မည့် တရားချိန်အသစ်တစ်ခု ဖန်တီးလိုပါက ဤနေရာမှ စတင်ပါ။</string>
+    <string name="tutorial_create_session_step1_hint">တရားချိန် ပြင်ဆင်ရန် အောက်ဘက်ရှိ \"တရားချိန် အသစ်\" ကို နှိပ်ပါ။</string>
+    <string name="tutorial_create_session_step2_title">ပရိကံတရား ထည့်သွင်းပါ (မထည့်လည်းရသည်)</string>
+    <string name="tutorial_create_session_step2_body">ပရိကံတရားများ သည် တရားထိုင်အချိန် မစတင်မီ အစဥ်လိုက် အရင်ပွင့်ပါမည်။</string>
+    <string name="tutorial_create_session_step3_title">ကမ္မဋ္ဌာန်းတရား ထည့်သွင်းပါ (မဖြစ်မနေ)</string>
+    <string name="tutorial_create_session_step3_body">တရားချိန်တိုင်းတွင် ကမ္မဋ္ဌာန်းတရား အနည်းဆုံး 1 ပုဒ် လိုအပ်ပါသည်။ ကမ္မဋ္ဌာန်းတရား ဖွင့်နေစဥ် တရားထိုင်အချိန်ကို စတင်ရေတွက်ပါမည်။</string>
+    <string name="tutorial_create_session_empty_library_note">သိမ်းဆည်းထားသော တရားဖိုင် မရှိသေးပါ။ ဤနေရာတွင် ထည့်သွင်းနိုင်ရန် \"တရားများ\" စာမျက်နှာတွင် အသံဖိုင် အနည်းဆုံး 1 ဖိုင် အရင်ထည့်သွင်းပါ။</string>
+    <string name="tutorial_create_session_step4_title">တရားထိုင်ကြာချိန် သတ်မှတ်ပါ</string>
+    <string name="tutorial_create_session_step4_body">တရားထိုင်ကြာချိန်အား ကြိုတင်သတ်မှတ်ထားသောကြာချိန်ကိုရွေးပါ (သို့) စိတ်ကြိုက်ကြာချိန်သတ်မှတ်ပါ</string>
+    <string name="tutorial_create_session_step5_title">အမည်ပေး၍ သိမ်းဆည်းပါ</string>
+    <string name="tutorial_create_session_step5_body">ဤစာမျက်နှာ အပေါ်ဆုံးတွင် တရားချိန် အမည် ထည့်သွင်းပြီး ကမ္မဋ္ဌာန်းတရားနှင့် ကြာချိန် အဆင်သင့်ဖြစ်ပါက \"တရားချိန် သိမ်းဆည်းမည်\" ကို နှိပ်ပါ။</string>
+    <string name="tutorial_create_session_step5_hint">လမ်းညွှန်ကို အဆုံးသတ်၍ တရားချိန် စတင်ဖန်တီးရန် \"နားလည်ပါပြီ\" ကို နှိပ်ပါ။</string>
 </resources>

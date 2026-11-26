@@ -1,20 +1,23 @@
-# Idea: Track Renaming & Skip to Main
+# Idea: Guided Tutorials
 
 **Date:** 2026-11-26
 
 ## One-Liner
-Add custom track naming and an Intro-only Skip to Main control to DhammaMeditate.
+An interactive, step-by-step guided tutorial feature in DhammaMeditate that walks unfamiliar users through key tasks directly on the live app screens.
 
 ## Problem / Purpose
-Imported tracks currently keep raw filenames or embedded tags, which can be messy to read in your library and sessions. On top of that, when you are already ready to meditate during a session's untimed Intro, you should be able to jump straight into the timed Main track without waiting or editing the session.
+New or unfamiliar users may not know where to tap to get started with DhammaMeditate. Instead of leaving them to figure it out alone or read static instructions, an in-app guided walkthrough highlights each step in place so they can learn by doing—both on first use and whenever they want a refresher later.
 
 ## Core Must-Haves
-- Rename a newly imported audio track to whatever display name you want to use in the app.
-- When importing multiple audio files at once, prompt whether you want to rename them (with a Skip all option if you don't); if you choose to rename, step through them one after another.
-- Rename existing tracks later from the Library page.
-- Show the custom display name wherever the track is addressed in the app.
-- During session playback, show a Skip to Main button only during the Intro.
-- Tapping Skip to Main skips the remaining Intro and immediately starts the Main track and meditation timer.
+- Automatically offer the guided tutorial to first-time users, with an option to skip it.
+- Provide a small on-demand button so users can open the tutorial list and replay any walkthrough later.
+- Display a tutorial topic menu/list where users pick which guided walkthrough to start.
+- Build an extensible tutorial foundation so additional walkthroughs can be added later without rebuilding the system.
+- Show interactive spotlight overlays over live app screens: dim the background, highlight the target UI element, and display a tooltip with step progress (e.g., `Step 1 / N`), short guidance, and a **Skip** button.
+- Advance step by step across screens as the user taps the highlighted control, finishing with a final completion/confirmation step (e.g., "Got it").
+- Include two initial tutorials:
+  - **How to add an audio**
+  - **How to create a session**
 
 ## Nice-to-Haves / Later
-- None specified yet.
+- Additional guided tutorials beyond the initial two.

@@ -3,9 +3,9 @@
 A minimalist, 100% offline mobile app that combines a local audio player with a programmable meditation timer for Burmese Dhamma (တရား) talks and preparation tracks. Users assemble reusable two-zone sessions (untimed Intro + timed Main) and meditate reliably with the screen off.
 
 - **Project Mode:** Prototype / MVP — Solid core playback, strict timer validation, and screen-off reliability without store-release ceremony (Cap: 2–4 phases per release)
-- **Build Approach:** Journey for v0.2.0 & v0.3.0 (Finish one complete user flow deep per phase on top of the v0.1.0 Tracer Bullet core)
-- **Source Idea:** `docs/scope/idea.md` (v0.1.0–v0.2.0) + `/scope` enrollment (v0.3.0: Burmese Language Localization)
-- **Tech Stack:** Native Android (Kotlin, Gradle Kotlin DSL, `compileSdk = 35`, `minSdk = 26`), Jetpack Compose + Material 3 (flat Monastic Maroon & Saffron tokens), Jetpack Media3 (`ExoPlayer` + `MediaSessionService`), Room SQLite (KSP), Kotlin Coroutines + `StateFlow`, manual `AppContainer` DI, JUnit 4
+- **Build Approach:** Tracer Bullet for v0.1.0 & v0.4.0 (prove the core vertical slice end to end first, then expand); Journey for v0.2.0 & v0.3.0 (finish one complete user flow deep per phase)
+- **Source Idea:** `docs/scope/idea.md` (v0.1.0–v0.2.0; updated for v0.4.0 Guided Tutorials) + `/scope` enrollment (v0.3.0: Burmese Language Localization)
+- **Tech Stack:** Native Android (Kotlin, Gradle Kotlin DSL, `compileSdk = 35`, `minSdk = 26`), Jetpack Compose + Material 3 (flat Monastic Maroon & Saffron tokens, custom zero-dependency Compose spotlight overlay), Jetpack Media3 (`ExoPlayer` + `MediaSessionService`), Room SQLite (KSP), `SharedPreferences`, Kotlin Coroutines + `StateFlow`, manual `AppContainer` DI, JUnit 4
 
 ## Non-Goals & Deferred
 Out of scope for the current roadmap so phases stay focused:
@@ -15,6 +15,8 @@ Out of scope for the current roadmap so phases stay focused:
 - **Cloud Streaming, User Accounts & Analytics:** App is strictly offline and local-first.
 - **Configurable Fade-Out Duration:** Uses a fixed smooth exponential fade-out window; per-session or global fade tuning is deferred.
 - **Video-to-Audio Extraction & DRM Audio:** Imports standard local audio files only.
+- **Additional Guided Tutorials (Beyond the Initial Two):** Extra walkthroughs (e.g., playback controls, track renaming, Intro Skip to Main) are deferred; the tutorial engine is built to be extensible so they can be added later without rework.
+- **Mandatory File Imports or Synthetic Data During Tutorials:** Walkthroughs run safely over live screens without forcing a real OS file import or saving fake tracks/sessions.
 
 ## At a Glance
 
@@ -26,6 +28,8 @@ Out of scope for the current roadmap so phases stay focused:
 | 04 | Custom Track Naming & Import Rename Flow | Verified | [04-custom-track-naming-and-import-rename-flow.md](plans/04-custom-track-naming-and-import-rename-flow.md) |
 | 05 | Intro Skip to Main & v0.2.0 Release Prep | Verified | [05-intro-skip-to-main-and-v0-2-0-release-prep.md](plans/05-intro-skip-to-main-and-v0-2-0-release-prep.md) |
 | 06 | Burmese Language Localization & v0.3.0 Release Prep | Verified | [06-burmese-language-localization-and-v0-3-0-release-prep.md](plans/06-burmese-language-localization-and-v0-3-0-release-prep.md) |
+| 07 | Guided Tutorial Foundation & "How to Add an Audio" | Verified | [07-guided-tutorial-foundation-and-how-to-add-an-audio.md](plans/07-guided-tutorial-foundation-and-how-to-add-an-audio.md) |
+| 08 | "How to Create a Session" Walkthrough, Burmese Copy & v0.4.0 Release Prep | Verified | [08-how-to-create-a-session-burmese-copy-and-v0-4-0-release-prep.md](plans/08-how-to-create-a-session-burmese-copy-and-v0-4-0-release-prep.md) |
 
 ---
 
@@ -108,3 +112,29 @@ Plan: [06-burmese-language-localization-and-v0-3-0-release-prep.md](plans/06-bur
   - [x] Audit Burmese layout/wrapping in tight controls and verify Western digits (`0-9`)
   - [x] Update `docs/spec/dhammameditate-shared-spec.md` to v1.2 and bump `app/build.gradle.kts` to `versionCode = 3` / `versionName = "0.3.0"`
 - [x] Verify phase: `/check verify Burmese Language Localization & v0.3.0 Release Prep`
+
+### 07. Guided Tutorial Foundation & "How to Add an Audio" · Verified
+Build the extensible guided tutorial engine, interactive multi-screen spotlight overlay (dimmed backdrop, highlighted target element, floating tooltip with `Step X / N`, tap hint, **Skip**, and final **"Got it"** confirmation), first-time-user auto-offer (skippable and persisted), small on-demand launcher button, and tutorial topic list—proven end to end with the first walkthrough: **How to add an audio**.
+**Done when:** First-time users are automatically offered the guided tutorial (and can skip it without being prompted again); a small on-demand button opens the tutorial topic list anytime; selecting **How to add an audio** runs an interactive spotlight walkthrough across the live app screens up to the Add Audio control (safely ending with a **"Got it"** confirmation without requiring a real file import); and the underlying registry/step model supports adding new tutorials without rewriting the overlay engine.
+Plan: [07-guided-tutorial-foundation-and-how-to-add-an-audio.md](plans/07-guided-tutorial-foundation-and-how-to-add-an-audio.md) · Code: `app/src/main/java/com/dhammameditate/ui/tutorial/`, `app/src/main/java/com/dhammameditate/data/preferences/TutorialPreferencesStore.kt`, `app/src/main/java/com/dhammameditate/MainActivity.kt`, `app/src/main/res/values/strings.xml`, `app/src/test/java/com/dhammameditate/ui/tutorial/TutorialEngineTest.kt`
+- [x] Architect plan: `/architect Guided Tutorial Foundation & "How to Add an Audio"`
+- [x] Build phase: `/develop Guided Tutorial Foundation & "How to Add an Audio"`
+  - [x] Add pure-Kotlin `TutorialModels`, `TutorialEngine`, `TutorialRegistry` (`ADD_AUDIO`), and `TutorialEngineTest`
+  - [x] Add `TutorialPreferencesStore` (`dhamma_meditate_prefs`) and wire into `AppContainer`
+  - [x] Build `TutorialAnchors`, custom `TutorialSpotlightOverlay`, `TutorialDialogs`, `TutorialLauncherButton`, and English `strings.xml` entries
+  - [x] Wire root overlay, welcome/topic dialogs, and `NAV_LIBRARY_TAB` anchor in `MainActivity`
+  - [x] Mount `TutorialLauncherButton` above primary CTAs in `SessionsScreen` & `LibraryScreen` and attach `LIBRARY_IMPORT_BUTTON` anchor
+- [x] Verify phase: `/check verify Guided Tutorial Foundation & "How to Add an Audio"`
+
+### 08. "How to Create a Session" Walkthrough, Burmese Copy & v0.4.0 Release Prep · Verified
+Add the **How to create a session** walkthrough on top of the Phase 07 tutorial foundation—handling both populated and empty Library states safely without forcing fake saves—then localize all tutorial UI and step copy into English and Burmese (`English` / `မြန်မာ`) using your supplied Burmese translations (zero auto-translation), update the shared iOS spec, and bump Android to `v0.4.0`.
+**Done when:** Selecting **How to create a session** from the tutorial list guides users step by step across live screens into the Session Editor (clearly covering Intro/Main queues, timer, and saving, and behaving gracefully when the Library has 0 tracks); all tutorial menus, prompts, buttons, and step instructions switch cleanly between `English` and `မြန်မာ` using only your provided Burmese copy; `docs/spec/dhammameditate-shared-spec.md` is updated to v1.3 with the Guided Tutorials contract and Burmese glossary for iOS parity; and `app/build.gradle.kts` is bumped to `versionCode = 4` and `versionName = "0.4.0"`.
+Plan: [08-how-to-create-a-session-burmese-copy-and-v0-4-0-release-prep.md](plans/08-how-to-create-a-session-burmese-copy-and-v0-4-0-release-prep.md) · Code: `app/src/main/java/com/dhammameditate/ui/tutorial/`, `app/src/main/java/com/dhammameditate/MainActivity.kt`, `app/src/main/java/com/dhammameditate/ui/sessions/SessionsScreen.kt`, `app/src/main/java/com/dhammameditate/ui/editor/SessionEditorScreen.kt`, `app/src/main/res/values/strings.xml`, `app/src/main/res/values-my/strings.xml`, `app/src/test/java/com/dhammameditate/ui/tutorial/TutorialEngineTest.kt`, `docs/spec/dhammameditate-shared-spec.md`, `app/build.gradle.kts`
+- [x] Architect plan: `/architect "How to Create a Session" Walkthrough, Burmese Copy & v0.4.0 Release Prep`
+- [x] Build phase: `/develop "How to Create a Session" Walkthrough, Burmese Copy & v0.4.0 Release Prep`
+  - [x] Extend `TutorialModels`, `TutorialRegistry` (`CREATE_SESSION`), English `strings.xml`, and `TutorialEngineTest`
+  - [x] Upgrade `TutorialSpotlightOverlay` (`Next` vs `Got it` + empty-Library note) and wire `MainActivity`
+  - [x] Attach `SessionsScreen` & `SessionEditorScreen` anchors with `BringIntoViewRequester` auto-scrolling
+  - [x] Collect all 41 Burmese tutorial strings via 2 interactive batches (zero auto-translation) and write `res/values-my/strings.xml`
+  - [x] Update `docs/spec/dhammameditate-shared-spec.md` to v1.3 and bump `app/build.gradle.kts` to `versionCode = 4` / `versionName = "0.4.0"`
+- [x] Verify phase: `/check verify "How to Create a Session" Walkthrough, Burmese Copy & v0.4.0 Release Prep`
