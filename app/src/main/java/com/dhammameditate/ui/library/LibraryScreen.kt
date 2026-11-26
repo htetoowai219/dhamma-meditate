@@ -26,11 +26,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material3.AlertDialog
@@ -40,6 +43,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,8 +54,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dhammameditate.data.local.TrackEntity
 import com.dhammameditate.playback.TimerValidation
@@ -138,6 +145,7 @@ fun LibraryScreen(
                             track = track,
                             isActiveTrack = uiState.playback.isActive && uiState.playback.activeTrackId == track.id,
                             onClick = { onOpenTrack(track.id) },
+                            onRenameClick = { viewModel.requestRenameTrack(track) },
                             onDeleteClick = { viewModel.requestDeleteTrack(track) }
                         )
                     }
@@ -278,6 +286,112 @@ fun LibraryScreen(
             }
         )
     }
+
+    when (val importRename = uiState.importRenameState) {
+        ImportRenameState.Hidden -> Unit
+
+        is ImportRenameState.BatchPrompt -> {
+            AlertDialog(
+                onDismissRequest = viewModel::skipAllImportRenames,
+                modifier = Modifier.border(1.dp, OutlineNeutral, RoundedCornerShape(16.dp)),
+                containerColor = CardSurface,
+                titleContentColor = InkPrimary,
+                textContentColor = InkSecondary,
+                tonalElevation = 0.dp,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Text(
+                        text = "Rename imported tracks?",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = InkPrimary
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Imported ${importRename.tracks.size} tracks. Would you like to customize their display names?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkSecondary
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = viewModel::beginBatchImportRename) {
+                        Text(
+                            text = "Rename tracks",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MonasticMaroon
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::skipAllImportRenames) {
+                        Text(
+                            text = "Skip all",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = InkSecondary
+                        )
+                    }
+                }
+            )
+        }
+
+        is ImportRenameState.Renaming -> {
+            TrackRenameDialog(
+                title = if (importRename.isBatch) {
+                    "Rename track (${importRename.stepNumber} of ${importRename.totalCount})"
+                } else {
+                    "Name imported track"
+                },
+                durationMs = importRename.currentTrack.durationMs,
+                draftTitle = importRename.draftTitle,
+                showBlankError = importRename.showBlankError,
+                canSave = importRename.canSave,
+                confirmLabel = if (importRename.isBatch && !importRename.isLastStep) {
+                    "Save & Next"
+                } else {
+                    "Save"
+                },
+                secondaryLabel = if (importRename.isBatch) "Skip" else "Keep default",
+                tertiaryLabel = if (importRename.isBatch) "Skip remaining" else null,
+                imeAction = if (importRename.isBatch && !importRename.isLastStep) {
+                    ImeAction.Next
+                } else {
+                    ImeAction.Done
+                },
+                onDraftTitleChange = viewModel::onImportRenameDraftChanged,
+                onConfirm = viewModel::confirmCurrentImportRename,
+                onSecondary = if (importRename.isBatch) {
+                    viewModel::skipCurrentImportRename
+                } else {
+                    viewModel::skipAllImportRenames
+                },
+                onTertiary = if (importRename.isBatch) {
+                    viewModel::skipAllImportRenames
+                } else {
+                    null
+                },
+                onDismiss = viewModel::skipAllImportRenames
+            )
+        }
+    }
+
+    uiState.pendingTrackRename?.let { pending ->
+        TrackRenameDialog(
+            title = "Rename track",
+            durationMs = pending.track.durationMs,
+            draftTitle = pending.draftTitle,
+            showBlankError = pending.showBlankError,
+            canSave = pending.canSave,
+            confirmLabel = "Save",
+            secondaryLabel = "Cancel",
+            tertiaryLabel = null,
+            imeAction = ImeAction.Done,
+            onDraftTitleChange = viewModel::onExistingTrackRenameDraftChanged,
+            onConfirm = viewModel::confirmRenameTrack,
+            onSecondary = viewModel::dismissRenameTrack,
+            onTertiary = null,
+            onDismiss = viewModel::dismissRenameTrack
+        )
+    }
 }
 
 @Composable
@@ -397,10 +511,133 @@ private fun EmptyLibraryCard() {
 }
 
 @Composable
+private fun TrackRenameDialog(
+    title: String,
+    durationMs: Long,
+    draftTitle: String,
+    showBlankError: Boolean,
+    canSave: Boolean,
+    confirmLabel: String,
+    secondaryLabel: String,
+    tertiaryLabel: String?,
+    imeAction: ImeAction,
+    onDraftTitleChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onSecondary: () -> Unit,
+    onTertiary: (() -> Unit)?,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = CardSurface,
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, OutlineNeutral),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = InkPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = TimerValidation.formatDuration(durationMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkSecondary
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = draftTitle,
+                    onValueChange = onDraftTitleChange,
+                    label = { Text(text = "Track name") },
+                    singleLine = true,
+                    isError = showBlankError,
+                    supportingText = if (showBlankError) {
+                        {
+                            Text(
+                                text = TrackTitleValidation.BLANK_ERROR_MESSAGE,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AlertRed
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = InkPrimary),
+                    keyboardOptions = KeyboardOptions(imeAction = imeAction),
+                    keyboardActions = KeyboardActions(
+                        onDone = { onConfirm() },
+                        onNext = { onConfirm() }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MonasticMaroon,
+                        unfocusedBorderColor = OutlineNeutral,
+                        errorBorderColor = AlertRed,
+                        focusedLabelColor = MonasticMaroon,
+                        unfocusedLabelColor = InkSecondary,
+                        errorLabelColor = AlertRed,
+                        cursorColor = MonasticMaroon
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onSecondary) {
+                        Text(
+                            text = secondaryLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = InkSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    TextButton(
+                        onClick = onConfirm,
+                        enabled = canSave
+                    ) {
+                        Text(
+                            text = confirmLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (canSave) MonasticMaroon else InkSecondary.copy(alpha = 0.45f)
+                        )
+                    }
+                }
+                if (tertiaryLabel != null && onTertiary != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        TextButton(onClick = onTertiary) {
+                            Text(
+                                text = tertiaryLabel,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = InkSecondary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrackCard(
     track: TrackEntity,
     isActiveTrack: Boolean,
     onClick: () -> Unit,
+    onRenameClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Surface(
@@ -446,6 +683,14 @@ private fun TrackCard(
                     text = TimerValidation.formatDuration(track.durationMs),
                     style = MaterialTheme.typography.bodySmall,
                     color = InkSecondary
+                )
+            }
+            IconButton(onClick = onRenameClick) {
+                Icon(
+                    imageVector = Icons.Outlined.Edit,
+                    contentDescription = "Rename ${track.title}",
+                    tint = InkSecondary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
             IconButton(onClick = onDeleteClick) {

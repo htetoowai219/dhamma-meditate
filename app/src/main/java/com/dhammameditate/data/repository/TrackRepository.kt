@@ -3,6 +3,7 @@ package com.dhammameditate.data.repository
 import android.content.Context
 import com.dhammameditate.data.local.TrackDao
 import com.dhammameditate.data.local.TrackEntity
+import com.dhammameditate.ui.library.TrackTitleValidation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -16,7 +17,17 @@ class TrackRepository(
 
     fun observeTracks(): Flow<List<TrackEntity>> = trackDao.observeAll()
 
+    fun observeTrack(id: String): Flow<TrackEntity?> = trackDao.observeById(id)
+
     suspend fun getTrack(id: String): TrackEntity? = trackDao.getById(id)
+
+    suspend fun renameTrack(id: String, rawTitle: String): String? {
+        val normalized = TrackTitleValidation.normalize(rawTitle) ?: return null
+        val updatedRows = withContext(Dispatchers.IO) {
+            trackDao.updateTitle(id = id, title = normalized)
+        }
+        return if (updatedRows > 0) normalized else null
+    }
 
     fun resolveAudioFile(track: TrackEntity): File {
         val safeName = File(track.localFileName).name

@@ -1,6 +1,6 @@
 # DhammaMeditate — Normative Cross-Platform Behavior Specification
 
-- **Version:** 1.0 (Android Reference Parity)
+- **Version:** 1.1 (Android v0.2.0 Reference Parity)
 - **Status:** Normative Source of Truth
 - **Reference Implementation:** Native Android (Kotlin, Jetpack Compose, Media3 ExoPlayer + MediaSessionService, Room SQLite v2)
 - **Target Parity Platforms:** Android (reference) & Native iOS (Swift, SwiftUI, AVFoundation + `AVAudioSession` + `MPRemoteCommandCenter` + SQLite/GRDB/SwiftData)
@@ -15,13 +15,13 @@ This document defines the exact, unambiguous product behavior, data contracts, s
 1. **100% Offline & Local-First:** All audio files are copied into app-private storage upon import. No cloud streaming, user accounts, network calls, or analytics exist.
 2. **Screen-Off Meditation Reliability:** Once started, playback and the monotonic meditation timer run reliably in the background with the screen locked until the target duration expires in a smooth exponential fade-out to silence.
 3. **Two-Zone Session Structure:** Users assemble reusable sessions combining an optional untimed **Intro Queue** (0+ ordered tracks) and a required timed **Main Queue** (1+ ordered tracks) with a saved countdown duration validated against the combined Main Queue length.
-4. **Fresh Start Discipline:** Every new session start begins from track index `0`, position `00:00`, and volume `1.0` (`100%`). There is no cross-session resume, seeking, scrubbing, skipping, or playback speed adjustment.
+4. **Fresh Start Discipline:** Every new session start begins from track index `0`, position `00:00`, and volume `1.0` (`100%`). There is no cross-session resume, seeking, scrubbing, Main-queue skipping, or playback speed adjustment. *(In-app **Skip to Main** during untimed Intro playback is the sole explicit exception.)*
 5. **Advisory Distraction Awareness:** Before starting a fresh session, the app checks whether the device is quiet (Airplane Mode, Do Not Disturb, or Silent) and gently recommends silencing distractions without ever blocking meditation.
 6. **Calm, Flat, Monastic Minimalism:** Strict flat UI (zero gradients, zero drop shadows, zero Material 3 tonal tint overlays, zero emojis) in Monastic Maroon & Saffron with Burmese Unicode-safe typography.
 
 ### Explicit v1 Non-Goals
 - Outro tracks or closing bells.
-- Seeking, scrubbing, skipping next/previous tracks, or playback speed controls (both in-app and on lock screen / headset remotes).
+- Seeking, scrubbing, Main-queue skipping, or playback speed controls (both in-app and on lock screen / headset remotes). Lock-screen and headset remotes never expose skip/next/previous actions even during Intro playback.
 - Cross-session playback position resume.
 - Cloud sync, streaming, accounts, or telemetry.
 - User-configurable fade-out duration (fixed to `10,000 ms` exponential decay).
@@ -45,7 +45,7 @@ This document defines the exact, unambiguous product behavior, data contracts, s
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | `TEXT` | `PRIMARY KEY NOT NULL` | UUID v4 string |
-| `title` | `TEXT` | `NOT NULL` | Embedded audio title tag if non-blank; else filename without last extension; fallback `"Untitled Track"` |
+| `title` | `TEXT` | `NOT NULL` | Display name (supports Burmese Unicode). Initialized from embedded audio title tag if non-blank; else filename without last extension; fallback `"Untitled Track"`. User-editable via post-import rename or Library rename; original app-private audio file is never modified. |
 | `local_file_name` | `TEXT` | `NOT NULL, UNIQUE` | `<id>.<ext>` inside app-private `audio/` directory |
 | `mime_type` | `TEXT` | `NOT NULL` | Probed audio MIME type (e.g., `audio/mpeg`, `audio/mp4`, `audio/wav`, `audio/flac`, `audio/ogg`) |
 | `duration_ms` | `INTEGER` | `NOT NULL` (`> 0`) | Validated track duration in milliseconds |
@@ -128,6 +128,24 @@ Each selected file is validated independently (batch imports succeed partially a
 5. **Duration Extraction:** Probe duration via platform metadata retriever, falling back to container track duration. Reject if `finalDurationMs <= 0`.
 6. **Title Extraction:** Prefer trimmed non-blank embedded title metadata; fallback to display filename with last extension stripped; final fallback `"Untitled Track"`.
 
+### 3.3 Custom Track Naming & Post-Import Rename Flow (v1.1)
+Users can customize any track's display name (`tracks.title`) immediately after import or later from the Library. Renaming updates only the database `tracks.title` column; the app-private audio file (`local_file_name`) and its `created_at_epoch_ms` remain untouched.
+
+1. **Title Validation (`TrackTitleValidation`):**
+   - `normalize(raw) = raw.trim().ifEmpty { null }`.
+   - Blank or whitespace-only titles are rejected with inline error `"Track name cannot be empty"` and disable the Save CTA.
+   - Burmese Unicode script is supported verbatim.
+2. **Post-Import Rename State Machine (`ImportRenameFlow`):**
+   - **0 tracks imported** (all failed or picker cancelled): remain `Hidden`.
+   - **1 track imported:** open the single-track rename dialog directly (`isBatch = false`), pre-filled with the extracted default title. Actions: `"Save"` (persists trimmed title if changed) and `"Keep Default"` / dismiss (keeps extracted title).
+   - **N > 1 tracks imported:** open a flat batch prompt (`BatchPrompt`) asking whether to rename the imported tracks now, offering `"Rename One by One"` and `"Skip All"`.
+   - Choosing `"Rename One by One"` steps sequentially through `1..N` (`Renaming`, `isBatch = true`), showing step indicator (`"Track i of N"`), pre-filled title input, `"Save & Next"` (or `"Save & Finish"` on the final track), `"Skip"` (keep default for current track and advance), and `"Skip All"` (dismiss remaining).
+3. **Existing Track Rename & Live Propagation:**
+   - Every track row in the Library exposes a `"Rename track"` action opening a flat dialog pre-filled with the current `track.title`.
+   - On save, persist `UPDATE tracks SET title = :trimmedTitle WHERE id = :trackId`.
+   - Because Sessions, Session Editor, Session Player, and Quick-Play Player observe reactive track/session queries, the new display name updates immediately across all screens.
+   - If the renamed track is currently loaded in active playback (Quick-Play or any entry in an active Saved Session), refresh the active playback snapshot (`activeTrackTitle`), in-memory queue entry title, and Media3/lock-screen metadata (`ACTION_REFRESH_TRACK_TITLE` on Android; `MPNowPlayingInfoCenter` / `AVPlayerItem` metadata on iOS) **without** interrupting playback or resetting the countdown timer.
+
 ---
 
 ## 4. Strict Timer Validation & Snapping Rules
@@ -191,12 +209,16 @@ INTRO_PLAYING
   -- pause()                         --> INTRO_PAUSED
   -- onIntroComplete() [one-shot]    --> PLAYING         (if targetMs > effectiveFadeMs, elapsed=0)
                                      --> FADING          (if targetMs <= effectiveFadeMs, elapsed=0)
+  -- skipIntroToMain() [in-app only] --> PLAYING         (if targetMs > effectiveFadeMs, elapsed=0, jumps to Main track 1)
+                                     --> FADING          (if targetMs <= effectiveFadeMs, elapsed=0, jumps to Main track 1)
   -- stopAndReset()                  --> IDLE
   -- queue ended early               --> COMPLETED       (completeEarly)
 
 INTRO_PAUSED
   -- resume()                        --> INTRO_PLAYING
   -- onIntroComplete() [one-shot]    --> PAUSED          (elapsed=0, remaining=target)
+  -- skipIntroToMain() [in-app only] --> PLAYING         (if targetMs > effectiveFadeMs, elapsed=0, jumps to Main track 1 & plays)
+                                     --> FADING          (if targetMs <= effectiveFadeMs, elapsed=0, jumps to Main track 1 & plays)
   -- stopAndReset()                  --> IDLE
 
 PLAYING
@@ -229,17 +251,26 @@ PAUSED
   - `remainingMs = max(0, targetDurationMs - elapsedMs)`
 - On `pause(nowMs)`: evaluate `tick(nowMs)` first. If `COMPLETED`, finish at zero; otherwise store `accumulatedElapsedMs = current.elapsedMs` and clear `segmentStartedAtMs = null`.
 - On `onIntroComplete(nowMs)`: strictly **one-shot**. Only transitions out of `INTRO_PLAYING` or `INTRO_PAUSED`; subsequent Main → Main track boundary transitions MUST NOT re-anchor or reset `segmentStartedAtMs`.
+- On `skipIntroToMain(nowMs)` **(v1.1, in-app only)**:
+  - Only active when `status ∈ {INTRO_PLAYING, INTRO_PAUSED}` and `activeIntroCount > 0 && activeMainCount > 0`; strict no-op in all other states (`IDLE`, `PLAYING`, `PAUSED`, `FADING`, `COMPLETED`).
+  - Unlike `onIntroComplete` (which preserves `PAUSED` when triggered from `INTRO_PAUSED`), `skipIntroToMain` transitions **both** `INTRO_PLAYING` and `INTRO_PAUSED` directly into `PLAYING` (or `FADING` if `targetDurationMs <= effectiveFadeMs`) with `accumulatedElapsedMs = 0`, `segmentStartedAtMs = nowMs`, and `volume = 1.0`.
+  - Immediately jumps the player past all remaining Intro tracks to Main track 1 (`playlistIndex = activeIntroCount`, position `0 ms`), sets `volume = skippedTick.volume`, and starts playback inside an internal-change guard so transition listeners do not double-fire `onIntroComplete()` or `resumeTimerOnly()`.
+  - If audio focus is blocked or suppressed when playback starts, fall back cleanly via `pauseTimerOnly()` so timer and audio remain synchronized in `PAUSED` at `00:00` of Main track 1.
+  - Never re-triggers the Distraction Check dialog.
 
 ### 5.4 Restricted In-App & Lock-Screen Controls
 - **In-App Controls:**
   - `IDLE` / `COMPLETED`: `"Start Session"` only.
-  - `INTRO_PLAYING` / `PLAYING` / `FADING`: `"Pause"` + `"Stop & Reset"`.
-  - `INTRO_PAUSED` / `PAUSED`: `"Continue"` + `"Stop & Reset"`.
+  - `INTRO_PLAYING` (Saved Session Player only, when `mainItems.isNotEmpty()`): `"Pause"` (full-width primary) + 50/50 secondary row (`"Skip to Main"` | `"Stop & Reset"`).
+  - `INTRO_PAUSED` (Saved Session Player only, when `mainItems.isNotEmpty()`): `"Continue"` (full-width primary) + 50/50 secondary row (`"Skip to Main"` | `"Stop & Reset"`).
+  - `PLAYING` / `FADING`: `"Pause"` + full-width `"Stop & Reset"` (no `"Skip to Main"`).
+  - `PAUSED`: `"Continue"` + full-width `"Stop & Reset"` (no `"Skip to Main"`).
+  - `"Skip to Main"` is **never** shown on Quick-Play `PlayerScreen` or `ActiveSessionBanner`.
   - Progress bar is strictly **non-interactive** (4pt/4dp flat bar; no scrub gesture).
   - Queue overview in Player is strictly **read-only** (no tap-to-jump).
 - **Lock-Screen / External Media Controls:**
   - **Allowed:** Play/Pause (`COMMAND_PLAY_PAUSE` ↔ `MPRemoteCommandCenter.playCommand`, `pauseCommand`, `togglePlayPauseCommand`) and Stop & Reset (`COMMAND_STOP` + custom `ACTION_STOP_RESET` ↔ `MPRemoteCommandCenter.stopCommand`).
-  - **Explicitly Disabled / Ignored:** Seek forward/backward, scrub position (`changePlaybackPositionCommand`), next/previous track (`nextTrackCommand`, `previousTrackCommand`), playback rate (`changePlaybackRateCommand`), ratings/bookmarks.
+  - **Explicitly Disabled / Ignored:** Seek forward/backward, scrub position (`changePlaybackPositionCommand`), next/previous track (`nextTrackCommand`, `previousTrackCommand`), playback rate (`changePlaybackRateCommand`), ratings/bookmarks, and `ACTION_SKIP_TO_MAIN` (strictly in-app only).
   - Lock-screen Play from `IDLE` / `COMPLETED` restarts the loaded session/track fresh from `(0, 00:00, volume 1.0)`.
 
 ---
@@ -311,7 +342,7 @@ For target duration $T = \max(0, \text{targetDurationMs})$ and remaining time $r
 
 ### 8.1 Trigger Scope
 - Evaluated **only** when the user taps fresh `"Start Session"` from `IDLE` or `COMPLETED` on either the Saved Session Player or Library Quick-Play screen.
-- **Never** triggered when tapping `"Continue"` from `PAUSED` or `INTRO_PAUSED`.
+- **Never** triggered when tapping `"Continue"` from `PAUSED` or `INTRO_PAUSED`, or when tapping `"Skip to Main"` during Intro playback.
 - Strictly **advisory**: `"Continue anyway"` is always available so meditation is never blocked.
 
 ### 8.2 Pure Readiness Predicate (`DistractionPolicy.evaluate`)
@@ -368,7 +399,7 @@ $$\text{isReady} \iff \text{isAirplaneModeOn} \lor \text{isDndActive} \lor (\tex
 | `MonasticMaroon` | `#5E2418` | Top headers, active session banner, player canvas, selected nav/outline accents |
 | `Saffron` | `#F06A1A` | Primary flat CTAs (`Start Session`, `Pause`, `Continue`, `Save Session`, `Import Audio`, `New Session`), selected timer chips |
 | `DeepSaffron` | `#E05614` | Disabled/pressed saffron container, picker badge accent |
-| `LotusGold` | `#C98A1E` | Non-interactive progress fill, active queue dot/duration, ready checkmark icon |
+| `LotusGold` | `#C98A1E` | Non-interactive progress fill, active queue dot/duration, ready checkmark icon, `Skip to Main` `1dp` border |
 | `LightNeutral` | `#F3F3F4` | Light screen canvas (`Sessions`, `Library`, `Session Editor`), inactive chip fill |
 | `CardSurface` | `#F8F8F9` | Cards, dialogs, bottom sheets, bottom navigation bar |
 | `OutlineNeutral` | `#D4D4D8` | `1dp` card, dialog, divider, and input borders |
@@ -379,7 +410,7 @@ $$\text{isReady} \iff \text{isAirplaneModeOn} \lor \text{isDndActive} \lor (\tex
 | `PureWhite` | `#FFFFFF` | Text/icons on maroon/saffron surfaces, text input fields |
 | `WhiteMuted` | `#D9C7C2` | Secondary text/subtitles on `MonasticMaroon` canvas |
 | `MaroonOutline` | `#834234` | `1dp` outlines on dark maroon surfaces (`Stop & Reset`, queue card) |
-| `MaroonSurfaceSubtle` | `#4E1D13` | Read-only queue overview card and zone status pill on player canvas |
+| `MaroonSurfaceSubtle` | `#4E1D13` | Read-only queue overview card, zone status pill, and `Skip to Main` fill on player canvas |
 | `ProgressTrackDark` | `#3E160E` | Non-interactive progress bar track |
 | `NavActivePill` | `#EFE5E2` | Active bottom navigation indicator pill |
 | `SaffronTintSurface` | `#FDF0E7` | Timer badge & active-edit warning banner fill |

@@ -90,6 +90,26 @@ class MeditationTimerEngine(
         }
     }
 
+    /**
+     * Explicit in-app skip past all remaining Intro tracks directly into Main Queue playback.
+     * Unlike [onIntroComplete], this immediately starts Main playback and countdown from both
+     * INTRO_PLAYING and INTRO_PAUSED. Calling this in any non-Intro state is a safe no-op.
+     */
+    fun skipIntroToMain(nowMs: Long = clockMs()): TimerTick {
+        if (status != PlaybackStatus.INTRO_PLAYING && status != PlaybackStatus.INTRO_PAUSED) {
+            return tick(nowMs)
+        }
+        accumulatedElapsedMs = 0L
+        segmentStartedAtMs = nowMs
+        val effectiveFade = FadeCurve.effectiveFadeMs(targetDurationMs)
+        status = if (targetDurationMs <= effectiveFade) {
+            PlaybackStatus.FADING
+        } else {
+            PlaybackStatus.PLAYING
+        }
+        return tick(nowMs)
+    }
+
     fun tick(nowMs: Long = clockMs()): TimerTick {
         return when (status) {
             PlaybackStatus.IDLE -> TimerTick(

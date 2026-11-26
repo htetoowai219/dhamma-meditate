@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -256,9 +258,11 @@ fun SessionPlayerScreen(
                 SessionTransportControls(
                     status = uiState.status,
                     canStart = uiState.canStart,
+                    canSkipToMain = uiState.canSkipToMain,
                     onStart = requestStartSession,
                     onPause = viewModel::pauseSession,
                     onResume = viewModel::resumeSession,
+                    onSkipToMain = viewModel::skipToMain,
                     onStopAndReset = viewModel::stopAndReset,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -526,9 +530,11 @@ private fun ReadOnlyQueueRow(
 private fun SessionTransportControls(
     status: PlaybackStatus,
     canStart: Boolean,
+    canSkipToMain: Boolean,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
+    onSkipToMain: () -> Unit,
     onStopAndReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -578,22 +584,11 @@ private fun SessionTransportControls(
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
-                OutlinedButton(
-                    onClick = onStopAndReset,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaroonOutline),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = PureWhite
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                ) {
-                    Text(
-                        text = "Stop & Reset",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                SecondaryTransportRow(
+                    canSkipToMain = canSkipToMain,
+                    onSkipToMain = onSkipToMain,
+                    onStopAndReset = onStopAndReset
+                )
             }
 
             PlaybackStatus.INTRO_PAUSED, PlaybackStatus.PAUSED -> {
@@ -614,23 +609,91 @@ private fun SessionTransportControls(
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
-                OutlinedButton(
-                    onClick = onStopAndReset,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaroonOutline),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = PureWhite
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                ) {
-                    Text(
-                        text = "Stop & Reset",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                SecondaryTransportRow(
+                    canSkipToMain = canSkipToMain,
+                    onSkipToMain = onSkipToMain,
+                    onStopAndReset = onStopAndReset
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun SecondaryTransportRow(
+    canSkipToMain: Boolean,
+    onSkipToMain: () -> Unit,
+    onStopAndReset: () -> Unit
+) {
+    if (canSkipToMain) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OutlinedButton(
+                onClick = onSkipToMain,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, LotusGold),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaroonSurfaceSubtle,
+                    contentColor = PureWhite
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.SkipNext,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Skip to Main",
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            OutlinedButton(
+                onClick = onStopAndReset,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaroonOutline),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = PureWhite
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+            ) {
+                Text(
+                    text = "Stop & Reset",
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    } else {
+        OutlinedButton(
+            onClick = onStopAndReset,
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, MaroonOutline),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = PureWhite
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text(
+                text = "Stop & Reset",
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

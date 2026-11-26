@@ -4,7 +4,10 @@
   <p>
     <img src="https://img.shields.io/badge/android-API%2026%2B-informational?style=flat-square" alt="Android API 26+" />
     <img src="https://img.shields.io/badge/kotlin-2.0.21-blue?style=flat-square" alt="Kotlin 2.0.21" />
-    <img src="https://img.shields.io/badge/version-0.1.0-lightgrey?style=flat-square" alt="Version 0.1.0" />
+    <img src="https://img.shields.io/badge/version-0.2.0-lightgrey?style=flat-square" alt="Version 0.2.0" />
+  </p>
+  <p>
+    <img src="docs/assets/hero-preview.png" alt="DhammaMeditate App Preview" width="840" />
   </p>
 </div>
 
@@ -21,7 +24,7 @@
 git clone https://github.com/htetoowai219/dhamma-meditate.git
 cd dhamma-meditate
 
-# 2. Run the unit test suite (30 tests, JVM-only)
+# 2. Run the unit test suite (44 tests, JVM-only)
 ./gradlew testDebugUnitTest
 
 # 3. Build the debug APK
@@ -37,10 +40,11 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Once in
 
 Standard media players and timer apps break down during long silent sits: Android revokes temporary document URIs, wall-clock timers drift during Doze mode, abrupt stops startle the listener, and lock-screen seek bars invite accidental skips. DhammaMeditate handles these failure modes locally without accounts or network access.
 
-- **Two-Zone Session Queues:** Assemble reusable sessions with an optional untimed **Intro Queue** (0+ preparation tracks) and a required timed **Main Queue** (1+ tracks). Intro tracks play to completion while the countdown stays frozen; the timer starts automatically at the first Main track.
+- **Two-Zone Session Queues & Intro Skip to Main:** Assemble reusable sessions with an optional untimed **Intro Queue** (0+ preparation tracks) and a required timed **Main Queue** (1+ tracks). Intro tracks play to completion while the countdown stays frozen; the timer starts automatically at the first Main track, or meditators can tap the in-app **Skip to Main** button during Intro playback to jump straight to Main track 1 and start the countdown immediately.
+- **Custom Track Naming & Import Rename Flow:** Customize track display names immediately after single or multi-file imports (with **Skip all** or step-through renaming) or rename any track later from the Library. Custom names propagate live across Library, Session Editor, Player, active banner, and lock-screen metadata without touching the app-private audio file.
 - **Strict Timer Validation:** Target duration cannot exceed the combined duration of the Main Queue. Removing a track or editing a queue below the current target snaps the timer down automatically with an inline notice and blocks invalid saves.
 - **Off-Screen Timed Playback & Fade-Out:** Runs inside a foreground Media3 `MediaSessionService` (`mediaPlayback` type) backed by `SystemClock.elapsedRealtime()`. Over the final 10 seconds, volume ramps down on an exponential curve (`k = 3.5`) before resetting cleanly to `00:00`.
-- **Restricted Controls:** Only **Start**, **Pause / Continue**, and **Stop (Reset)** are exposed in-app and on the lock screen. Seeking, skipping, and cross-session resume are blocked at the player boundary (`RestrictedMeditationPlayer`).
+- **Restricted Controls:** Only **Start**, **Pause / Continue**, and **Stop & Reset** are exposed on the lock screen and headset remotes (with in-app **Skip to Main** visible strictly during Intro playback). Seeking, Main-queue skipping, and cross-session resume are blocked at the player boundary (`RestrictedMeditationPlayer`).
 - **Pre-Session Distraction Check:** Checks Airplane Mode, Do Not Disturb, and ringer state via standard Android read APIs with zero extra permissions. If alerts are active, a dialog links directly to system settings and re-evaluates on return (`ON_RESUME`) while allowing **Continue anyway**.
 - **Burmese Unicode & Flat UI:** Built with Jetpack Compose and flat Material 3 tokens (`tonalElevation = 0.dp`, `1dp` outlines, no gradients or shadows) and `1.45x–1.5x` line heights so stacked Myanmar diacritics do not clip.
 
@@ -82,11 +86,14 @@ app/src/
 │       │                            # RestrictedMeditationPlayer, DistractionPolicy, TimerValidation
 │       └── ui/                      # Compose screens (Sessions, Library, Editor, SessionPlayer, Player),
 │                                    # DistractionCheckDialog, ActiveSessionBanner, flat Material 3 theme
-└── test/java/com/dhammameditate/playback/
-    ├── DistractionPolicyTest.kt     # Airplane Mode / DND / ringer policy matrix
-    ├── FadeCurveTest.kt             # Exponential curve and short-session boundary vectors
-    ├── MeditationTimerEngineTest.kt # Intro-to-Main transitions, pause/resume, fade, completion
-    └── TimerValidationTest.kt       # Cap clamping and validation rules
+└── test/java/com/dhammameditate/
+    ├── playback/
+    │   ├── DistractionPolicyTest.kt     # Airplane Mode / DND / ringer policy matrix
+    │   ├── FadeCurveTest.kt             # Exponential curve and short-session boundary vectors
+    │   ├── MeditationTimerEngineTest.kt # Intro-to-Main transitions, skipIntroToMain, pause/resume, fade
+    │   └── TimerValidationTest.kt       # Cap clamping and validation rules
+    └── ui/library/
+        └── TrackNamingTest.kt           # Title validation & single/batch import rename flow
 
 docs/
 ├── spec/dhammameditate-shared-spec.md  # Cross-platform contract for Android and future iOS parity
@@ -112,7 +119,7 @@ All user data stays on-device (`android:allowBackup="false"`):
 ## Common Commands
 
 ```bash
-./gradlew testDebugUnitTest   # Run all 30 JUnit 4 unit tests
+./gradlew testDebugUnitTest   # Run all 44 JUnit 4 unit tests
 ./gradlew lintDebug           # Run Android Lint checks
 ./gradlew assembleDebug       # Build debug APK (app/build/outputs/apk/debug/app-debug.apk)
 ./gradlew installDebug        # Build and install debug APK to connected device/emulator

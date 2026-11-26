@@ -12,6 +12,9 @@ interface TrackDao {
     fun observeAll(): Flow<List<TrackEntity>>
 
     @Query("SELECT * FROM tracks WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<TrackEntity?>
+
+    @Query("SELECT * FROM tracks WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): TrackEntity?
 
     @Query("SELECT * FROM tracks WHERE id IN (:ids)")
@@ -19,6 +22,9 @@ interface TrackDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(track: TrackEntity)
+
+    @Query("UPDATE tracks SET title = :title WHERE id = :id")
+    suspend fun updateTitle(id: String, title: String): Int
 
     @Query("DELETE FROM tracks WHERE id = :id")
     suspend fun deleteById(id: String)

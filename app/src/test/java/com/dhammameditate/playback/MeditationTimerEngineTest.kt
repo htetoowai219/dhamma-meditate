@@ -423,4 +423,123 @@ class MeditationTimerEngineTest {
         assertEquals(0L, pausedPastZero.remainingMs)
         assertEquals(0.0f, pausedPastZero.volume, 0.0f)
     }
+
+    @Test
+    fun `skipIntroToMain from INTRO_PLAYING starts Main countdown immediately at zero`() {
+        var now = 3_000L
+        val engine = MeditationTimerEngine(clockMs = { now })
+
+        engine.start(targetDurationMs = 45_000L, hasIntro = true)
+        now += 90_000L // 1.5 minutes spent in Intro
+
+        val skipped = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.PLAYING, skipped.status)
+        assertEquals(0L, skipped.elapsedMs)
+        assertEquals(45_000L, skipped.remainingMs)
+        assertEquals(1.0f, skipped.volume, 0.0f)
+
+        now += 15_000L
+        val ticked = engine.tick()
+        assertEquals(PlaybackStatus.PLAYING, ticked.status)
+        assertEquals(15_000L, ticked.elapsedMs)
+        assertEquals(30_000L, ticked.remainingMs)
+    }
+
+    @Test
+    fun `skipIntroToMain from INTRO_PAUSED starts Main playback and countdown immediately`() {
+        var now = 4_000L
+        val engine = MeditationTimerEngine(clockMs = { now })
+
+        engine.start(targetDurationMs = 60_000L, hasIntro = true)
+        now += 20_000L
+        val paused = engine.pause()
+        assertEquals(PlaybackStatus.INTRO_PAUSED, paused.status)
+
+        now += 30_000L
+        val skipped = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.PLAYING, skipped.status)
+        assertEquals(0L, skipped.elapsedMs)
+        assertEquals(60_000L, skipped.remainingMs)
+        assertEquals(1.0f, skipped.volume, 0.0f)
+
+        now += 10_000L
+        val ticked = engine.tick()
+        assertEquals(PlaybackStatus.PLAYING, ticked.status)
+        assertEquals(10_000L, ticked.elapsedMs)
+        assertEquals(50_000L, ticked.remainingMs)
+    }
+
+    @Test
+    fun `skipIntroToMain with short Main target under 10s enters FADING immediately`() {
+        var now = 10_000L
+        val engine = MeditationTimerEngine(clockMs = { now })
+
+        engine.start(targetDurationMs = 8_000L, hasIntro = true)
+        now += 15_000L
+        engine.pause()
+        assertEquals(PlaybackStatus.INTRO_PAUSED, engine.currentStatus())
+
+        val skipped = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.FADING, skipped.status)
+        assertEquals(0L, skipped.elapsedMs)
+        assertEquals(8_000L, skipped.remainingMs)
+        assertEquals(1.0f, skipped.volume, 0.0001f)
+
+        now += 4_000L
+        val halfFade = engine.tick()
+        assertEquals(PlaybackStatus.FADING, halfFade.status)
+        assertEquals(4_000L, halfFade.remainingMs)
+        assertEquals(FadeCurve.gainForProgress(0.5), halfFade.volume, 0.0001f)
+
+        now += 4_000L
+        val done = engine.tick()
+        assertEquals(PlaybackStatus.COMPLETED, done.status)
+        assertEquals(0L, done.remainingMs)
+        assertEquals(0.0f, done.volume, 0.0f)
+    }
+
+    @Test
+    fun `skipIntroToMain is a safe no-op in IDLE PLAYING PAUSED FADING and COMPLETED`() {
+        var now = 1_000L
+        val engine = MeditationTimerEngine(clockMs = { now })
+
+        // IDLE
+        val idleSkip = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.IDLE, idleSkip.status)
+        assertEquals(0L, idleSkip.elapsedMs)
+
+        // PLAYING
+        engine.start(targetDurationMs = 30_000L, hasIntro = false)
+        now += 12_000L
+        val playingSkip = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.PLAYING, playingSkip.status)
+        assertEquals(12_000L, playingSkip.elapsedMs)
+        assertEquals(18_000L, playingSkip.remainingMs)
+
+        // PAUSED
+        engine.pause()
+        now += 5_000L
+        val pausedSkip = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.PAUSED, pausedSkip.status)
+        assertEquals(12_000L, pausedSkip.elapsedMs)
+        assertEquals(18_000L, pausedSkip.remainingMs)
+
+        // FADING
+        engine.resume()
+        now += 13_000L // 25s elapsed, 5s remaining -> FADING
+        assertEquals(PlaybackStatus.FADING, engine.tick().status)
+        val fadingSkip = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.FADING, fadingSkip.status)
+        assertEquals(25_000L, fadingSkip.elapsedMs)
+        assertEquals(5_000L, fadingSkip.remainingMs)
+
+        // COMPLETED
+        now += 5_000L
+        assertEquals(PlaybackStatus.COMPLETED, engine.tick().status)
+        val completedSkip = engine.skipIntroToMain()
+        assertEquals(PlaybackStatus.COMPLETED, completedSkip.status)
+        assertEquals(30_000L, completedSkip.elapsedMs)
+        assertEquals(0L, completedSkip.remainingMs)
+        assertEquals(0.0f, completedSkip.volume, 0.0f)
+    }
 }

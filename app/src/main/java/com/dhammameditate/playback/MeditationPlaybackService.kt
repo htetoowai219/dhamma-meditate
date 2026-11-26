@@ -301,6 +301,7 @@ class MeditationPlaybackService : MediaSessionService() {
 
             ACTION_PAUSE_SESSION -> pauseSession()
             ACTION_RESUME_SESSION -> resumeSession()
+            ACTION_SKIP_TO_MAIN -> skipIntroToMain()
             ACTION_STOP_RESET -> stopAndReset(clearSelection = false)
 
             ACTION_STOP_IF_TRACK -> {
@@ -332,6 +333,14 @@ class MeditationPlaybackService : MediaSessionService() {
                     if (activeSessionId == sessionId || stateStore.state.value.activeSessionId == sessionId) {
                         stopAndReset(clearSelection = true)
                     }
+                }
+            }
+
+            ACTION_REFRESH_TRACK_TITLE -> {
+                val trackId = intent.getStringExtra(EXTRA_TRACK_ID)
+                val newTitle = intent.getStringExtra(EXTRA_TRACK_TITLE)
+                if (!trackId.isNullOrBlank() && !newTitle.isNullOrBlank()) {
+                    refreshTrackTitle(trackId, newTitle)
                 }
             }
         }
@@ -760,6 +769,38 @@ class MeditationPlaybackService : MediaSessionService() {
         }
     }
 
+    private fun skipIntroToMain() {
+        val status = timerEngine.currentStatus()
+        if (status != PlaybackStatus.INTRO_PLAYING && status != PlaybackStatus.INTRO_PAUSED) return
+        if (
+            activeIntroCount <= 0 ||
+            activeMainCount <= 0 ||
+            activeIntroCount >= activeQueueEntries.size ||
+            activeIntroCount >= exoPlayer.mediaItemCount
+        ) {
+            return
+        }
+
+        val skippedTick = timerEngine.skipIntroToMain(SystemClock.elapsedRealtime())
+        currentQueueIndex = activeIntroCount
+        withInternalPlayerChange {
+            exoPlayer.seekTo(activeIntroCount, 0L)
+            exoPlayer.volume = skippedTick.volume
+            exoPlayer.play()
+        }
+        if (isPlaybackBlockedOrSuppressed()) {
+            pauseTimerOnly()
+        } else {
+            publishSnapshot(tick = skippedTick, errorMessage = null)
+            if (
+                skippedTick.status == PlaybackStatus.PLAYING ||
+                skippedTick.status == PlaybackStatus.FADING
+            ) {
+                startTickLoop()
+            }
+        }
+    }
+
     private fun stopAndReset(clearSelection: Boolean) {
         startSessionJob?.cancel()
         startSessionJob = null
@@ -913,6 +954,47 @@ class MeditationPlaybackService : MediaSessionService() {
         )
     }
 
+    private fun refreshTrackTitle(trackId: String, newTitle: String) {
+        if (trackId !in activeTrackIds && activeQueueEntries.none { it.trackId == trackId }) {
+            return
+        }
+
+        activeQueueEntries = activeQueueEntries.map { entry ->
+            if (entry.trackId == trackId) {
+                entry.copy(trackTitle = newTitle)
+            } else {
+                entry
+            }
+        }
+
+        withInternalPlayerChange {
+            for ((index, entry) in activeQueueEntries.withIndex()) {
+                if (entry.trackId == trackId && index < exoPlayer.mediaItemCount) {
+                    val existingItem = exoPlayer.getMediaItemAt(index)
+                    val updatedMetadata = existingItem.mediaMetadata.buildUpon()
+                        .setTitle(newTitle)
+                        .build()
+                    val updatedItem = existingItem.buildUpon()
+                        .setMediaMetadata(updatedMetadata)
+                        .build()
+                    exoPlayer.replaceMediaItem(index, updatedItem)
+                }
+            }
+        }
+
+        val currentEntry = activeQueueEntries.getOrNull(currentQueueIndex)
+            ?: activeQueueEntries.firstOrNull()
+        if (currentEntry?.trackId == trackId) {
+            stateStore.update { snapshot ->
+                if (snapshot.activeTrackId == trackId) {
+                    snapshot.copy(activeTrackTitle = newTitle)
+                } else {
+                    snapshot
+                }
+            }
+        }
+    }
+
     private fun clearActiveMetadata() {
         activeSessionId = null
         activeSessionName = null
@@ -943,11 +1025,14 @@ class MeditationPlaybackService : MediaSessionService() {
         const val ACTION_START_SAVED_SESSION = "com.dhammameditate.action.START_SAVED_SESSION"
         const val ACTION_PAUSE_SESSION = "com.dhammameditate.action.PAUSE_SESSION"
         const val ACTION_RESUME_SESSION = "com.dhammameditate.action.RESUME_SESSION"
+        const val ACTION_SKIP_TO_MAIN = "com.dhammameditate.action.SKIP_TO_MAIN"
         const val ACTION_STOP_RESET = "ACTION_STOP_RESET"
         const val ACTION_STOP_IF_TRACK = "com.dhammameditate.action.STOP_IF_TRACK"
         const val ACTION_STOP_IF_SESSION = "com.dhammameditate.action.STOP_IF_SESSION"
+        const val ACTION_REFRESH_TRACK_TITLE = "com.dhammameditate.action.REFRESH_TRACK_TITLE"
 
         const val EXTRA_TRACK_ID = "extra_track_id"
+        const val EXTRA_TRACK_TITLE = "extra_track_title"
         const val EXTRA_SESSION_ID = "extra_session_id"
         const val EXTRA_TARGET_DURATION_MS = "extra_target_duration_ms"
 

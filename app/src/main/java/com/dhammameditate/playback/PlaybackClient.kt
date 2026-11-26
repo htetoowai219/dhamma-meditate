@@ -45,6 +45,13 @@ class PlaybackClient(
         context.startService(intent)
     }
 
+    fun skipToMain() {
+        val intent = Intent(context, MeditationPlaybackService::class.java).apply {
+            action = MeditationPlaybackService.ACTION_SKIP_TO_MAIN
+        }
+        context.startService(intent)
+    }
+
     fun stopAndReset() {
         val intent = Intent(context, MeditationPlaybackService::class.java).apply {
             action = MeditationPlaybackService.ACTION_STOP_RESET
@@ -96,6 +103,29 @@ class PlaybackClient(
         if (cleared == null && stateStore.state.value.activeSessionId == sessionId) {
             stateStore.set(PlaybackSnapshot())
         }
+    }
+
+    fun notifyTrackRenamed(trackId: String, newTitle: String) {
+        val current = stateStore.state.value
+        val isTrackLoaded = current.activeTrackId == trackId || trackId in current.activeTrackIds
+        if (!isTrackLoaded) return
+
+        if (current.activeTrackId == trackId) {
+            stateStore.update { snapshot ->
+                if (snapshot.activeTrackId == trackId) {
+                    snapshot.copy(activeTrackTitle = newTitle)
+                } else {
+                    snapshot
+                }
+            }
+        }
+
+        val intent = Intent(context, MeditationPlaybackService::class.java).apply {
+            action = MeditationPlaybackService.ACTION_REFRESH_TRACK_TITLE
+            putExtra(MeditationPlaybackService.EXTRA_TRACK_ID, trackId)
+            putExtra(MeditationPlaybackService.EXTRA_TRACK_TITLE, newTitle)
+        }
+        context.startService(intent)
     }
 
     fun clearError() {

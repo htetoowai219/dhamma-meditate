@@ -41,6 +41,10 @@ data class SessionPlayerUiState(
 
     val canStart: Boolean
         get() = session != null && session.isPlayable
+
+    val canSkipToMain: Boolean
+        get() = (status == PlaybackStatus.INTRO_PLAYING || status == PlaybackStatus.INTRO_PAUSED) &&
+            (session?.mainItems?.isNotEmpty() == true)
 }
 
 private data class SessionLoadResult(
@@ -147,6 +151,11 @@ class SessionPlayerViewModel(
 
     fun resumeSession() {
         playbackClient.resume()
+    }
+
+    fun skipToMain() {
+        if (!uiState.value.canSkipToMain) return
+        playbackClient.skipToMain()
     }
 
     fun stopAndReset() {

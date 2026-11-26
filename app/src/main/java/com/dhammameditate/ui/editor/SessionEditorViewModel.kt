@@ -87,14 +87,23 @@ class SessionEditorViewModel(
         trackRepository.observeTracks(),
         playbackClient.state
     ) { draft, libraryTracks, playback ->
+        val liveTracksById = libraryTracks.associateBy { it.id }
+        val liveIntroItems = draft.introItems.map { item ->
+            val latest = liveTracksById[item.track.id]
+            if (latest != null && latest != item.track) item.copy(track = latest) else item
+        }
+        val liveMainItems = draft.mainItems.map { item ->
+            val latest = liveTracksById[item.track.id]
+            if (latest != null && latest != item.track) item.copy(track = latest) else item
+        }
         SessionEditorUiState(
             isEditMode = sessionId != null,
             isLoading = draft.isLoading,
             sessionNotFound = draft.sessionNotFound,
             name = draft.name,
             nameTouched = draft.nameTouched,
-            introItems = draft.introItems,
-            mainItems = draft.mainItems,
+            introItems = liveIntroItems,
+            mainItems = liveMainItems,
             libraryTracks = libraryTracks,
             targetDurationMs = draft.targetDurationMs,
             isFullSelected = draft.isFullSelected,

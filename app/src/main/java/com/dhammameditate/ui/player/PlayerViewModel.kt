@@ -44,7 +44,6 @@ data class PlayerUiState(
 
 private data class LocalSelectionState(
     val isLoading: Boolean = true,
-    val track: TrackEntity? = null,
     val selectedDurationMs: Long = 0L,
     val isFullSelected: Boolean = false,
     val customMinutesInput: String = "",
@@ -61,9 +60,10 @@ class PlayerViewModel(
 
     val uiState: StateFlow<PlayerUiState> = combine(
         localState,
+        trackRepository.observeTrack(trackId),
         playbackClient.state
-    ) { local, playback ->
-        buildUiState(local, playback)
+    ) { local, observedTrack, playback ->
+        buildUiState(local, observedTrack, playback)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000L),
@@ -74,7 +74,7 @@ class PlayerViewModel(
         viewModelScope.launch {
             val track = trackRepository.getTrack(trackId)
             if (track == null) {
-                localState.value = LocalSelectionState(isLoading = false, track = null)
+                localState.value = LocalSelectionState(isLoading = false)
                 return@launch
             }
             val activePlayback = playbackClient.state.value
@@ -92,7 +92,6 @@ class PlayerViewModel(
             }
             localState.value = LocalSelectionState(
                 isLoading = false,
-                track = track,
                 selectedDurationMs = initialDuration,
                 isFullSelected = !matchesPreset && initialDuration == track.durationMs,
                 customMinutesInput = "",
@@ -103,6 +102,7 @@ class PlayerViewModel(
 
     private fun buildUiState(
         local: LocalSelectionState,
+        observedTrack: TrackEntity?,
         playback: PlaybackSnapshot
     ): PlayerUiState {
         val isThisTrackLoaded = playback.activeSessionId == null && playback.activeTrackId == trackId
@@ -140,7 +140,7 @@ class PlayerViewModel(
 
         return PlayerUiState(
             isLoading = local.isLoading,
-            track = local.track,
+            track = if (local.isLoading) null else observedTrack,
             status = status,
             selectedDurationMs = local.selectedDurationMs,
             isFullSelected = local.isFullSelected,
