@@ -4,6 +4,7 @@ import android.content.Context
 import com.dhammameditate.data.importer.AudioFileImporter
 import com.dhammameditate.data.local.AppDatabase
 import com.dhammameditate.data.preferences.AppLanguageStore
+import com.dhammameditate.data.preferences.QuickMeditateStore
 import com.dhammameditate.data.preferences.TutorialPreferencesStore
 import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
@@ -54,5 +55,9 @@ class AppContainer(context: Context) {
 
     val tutorialPreferencesStore: TutorialPreferencesStore by lazy {
         TutorialPreferencesStore(appContext)
+    }
+
+    val quickMeditateStore: QuickMeditateStore by lazy {
+        QuickMeditateStore(appContext)
     }
 }

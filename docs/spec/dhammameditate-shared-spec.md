@@ -1,6 +1,6 @@
 # DhammaMeditate — Normative Cross-Platform Behavior Specification
 
-- **Version:** 1.3 (Android v0.4.0 Reference Parity)
+- **Version:** 1.4 (Android v0.5.0 Reference Parity)
 - **Status:** Normative Source of Truth
 - **Reference Implementation:** Native Android (Kotlin, Jetpack Compose, Media3 ExoPlayer + MediaSessionService, Room SQLite v2)
 - **Target Parity Platforms:** Android (reference) & Native iOS (Swift, SwiftUI, AVFoundation + `AVAudioSession` + `MPRemoteCommandCenter` + SQLite/GRDB/SwiftData)
@@ -464,11 +464,11 @@ Burmese Unicode script (e.g., `တရားတော်`, `မေတ္တာဘ
 - **Tight Controls:** Side-by-side buttons (such as the 50/50 `Skip to Main` | `Stop & Reset` row during Intro playback) MUST allow up to 2 centered lines (`heightIn(min = 50dp)` / flexible min-height in SwiftUI) so Burmese labels never clip on narrow screens.
 
 ### 10.4 Canonical English ↔ Burmese Terminology & String Catalog
-The complete 209-key English and Burmese string catalog lives in:
+The complete 217-key English and Burmese string catalog lives in:
 - `app/src/main/res/values/strings.xml`
 - `app/src/main/res/values-my/strings.xml`
 
-The iOS port MUST import these exact 209 keys and Burmese strings verbatim into `Localizable.xcstrings`. Core domain terms:
+The iOS port MUST import these exact 217 keys and Burmese strings verbatim into `Localizable.xcstrings`. Core domain terms:
 
 | Concept | English | Canonical Burmese (`my`) |
 |---|---|---|
@@ -488,6 +488,8 @@ The iOS port MUST import these exact 209 keys and Burmese strings verbatim into 
 | Tutorial Actions | `Skip` / `Next` / `Got it` | `ကျော်မည်` / `နောက်တစ်ဆင့်` / `နားလည်ပါပြီ` |
 | Tutorial Step Progress | `Step {1} / {2}` | `အဆင့် {1} / {2}` |
 | Tutorial Topics | `How to add an audio` / `How to create a session` | `တရားဖိုင် ထည့်သွင်းနည်း` / `တရားချိန် ဖန်တီးနည်း` |
+| Quick Meditate Title / CTA | `Quick Meditate` | `အမြန်တရားထိုင်မည်` |
+| Quick Meditate Reset / Start | `Reset` / `Start Meditation` | `အကုန်ဖျက်မည်` / `တရားစထိုင်မည်` |
 
 ---
 
@@ -525,3 +527,42 @@ All walkthroughs are driven by a data registry (`TutorialId`, `TutorialTargetId`
   - Entering active playback (e.g., via notification or active session banner) clears any active tutorial overlay.
 - **Auto-scrolling:** Scrollable screens (`SessionEditorScreen`) scroll each active target card into view automatically (`BringIntoViewRequester` on Android; `ScrollViewReader.scrollTo(...)` on iOS) so the spotlight cutout stays aligned without manual scrolling.
 - **Western numerals:** `Step X / N` (`အဆင့် X / N`) and step counts MUST always format numbers with `Locale.US` / `en_US_POSIX` (`0-9`).
+
+---
+
+## 12. Quick Meditate (One-Off Ephemeral Two-Zone Session)
+
+### 12.1 Home Entry & Visual Hierarchy
+- On the Home (`Sessions`) screen, directly beneath the right-aligned `Tutorials` launcher pill, display a **50/50 side-by-side CTA row** (`10dp` horizontal gap, `54dp` minimum height, `16dp` corner radius, 2-line centered wrapping for Burmese):
+  1. **Left (`Quick Meditate` / `အမြန်တရားထိုင်မည်`):** Primary filled `Saffron` button (`PureWhite` text, `0dp` elevation). Opens `QuickMeditateSetup`.
+  2. **Right (`New Session` / `တရားချိန် အသစ်`):** Flat outlined `MonasticMaroon` button (`PureWhite` fill, `1dp` `MonasticMaroon` border, `MonasticMaroon` text). Opens `SessionEditor` and retains the `SESSIONS_NEW_BUTTON` tutorial anchor.
+
+### 12.2 Setup Screen & Reset Behavior
+- `QuickMeditateSetup` mirrors the two-zone Session Editor layout **without a Session Name field**:
+  - **Top bar (`MonasticMaroon`):** Back button, localized `Quick Meditate` title, and a right-aligned subtle **Reset** (`အကုန်ဖျက်မည်`) text button enabled only when at least one Intro track, Main track, timer, or custom input is set.
+  - **Optional Active Notice:** If Quick Meditate is currently playing, display a flat `SaffronTintSurface` notice (`1dp` `Saffron` border) informing the user that starting again will replace the active session and begin fresh from `00:00`.
+  - **Cards:** Optional untimed **Intro Queue**, required timed **Main Queue** (1+ tracks), and validated **Meditation Timer** (presets `10m/15m/30m/45m/60m`, `Full`, custom minutes `>= 1`, identical clamping rules to Section 4).
+  - **Anchored Bottom CTA:** Full-width filled `Saffron` **Start Meditation** (`တရားစထိုင်မည်`) button enabled iff `mainItems.isNotEmpty() && targetDurationMs in 1..mainTotalDurationMs && !hasInvalidCustomInput`.
+- **Reset isolation:** Tapping **Reset** clears all in-memory selections and persists an empty draft without interrupting any currently active playback session.
+
+### 12.3 Draft Persistence & Deleted-Track Reconciliation
+- Quick Meditate **never writes rows to the `sessions` or `session_tracks` database tables**.
+- Last selections persist automatically on every change to local key-value preferences:
+  - **Android:** `SharedPreferences` (`"dhamma_meditate_prefs"`).
+  - **iOS:** `UserDefaults.standard`.
+  - **Keys:**
+    - `quick_meditate_intro_ids`: comma-separated ordered `String` of track IDs (duplicates preserved; empty string = empty list).
+    - `quick_meditate_main_ids`: comma-separated ordered `String` of track IDs (duplicates preserved; empty string = empty list).
+    - `quick_meditate_target_duration_ms`: `Int64` / `Long` (default `0`).
+- **Reconciliation on open / live library observation:**
+  1. Silently drop any track ID that no longer exists in the Library while preserving the exact order and duplicates of remaining tracks.
+  2. If remaining `mainTotalDurationMs <= 0`, set `targetDurationMs = 0`.
+  3. Else if `targetDurationMs <= 0`, default to `min(30 min, mainTotalDurationMs)`.
+  4. Else if `targetDurationMs > mainTotalDurationMs`, clamp `targetDurationMs = mainTotalDurationMs` (marking `wasCapped = true` and showing the standard Main Queue cap notice).
+  5. Persist the reconciled draft back to preferences if any track was dropped or timer was adjusted.
+
+### 12.4 Ephemeral Playback, Full Parity & Localization
+- **Reserved Ephemeral Session ID:** `"__quick_meditate__"` (never collides with UUID v4 saved session IDs).
+- **Immediate Start Flow:** Tapping **Start Meditation** runs the standard Distraction Check (and one-time API 33+ notification prompt on Android), dispatches ephemeral two-zone playback (`ACTION_START_QUICK_MEDITATE` on Android), and navigates directly to `QuickMeditatePlayer` (reusing the Maroon `SessionPlayerScreen` UI).
+- **Full Parity:** Intro-to-Main transitions, in-app **Skip to Main** during Intro, Pause/Continue, Stop & Reset, smooth 10s exponential fade-out, restricted lock-screen controls (Play/Pause + Stop & Reset only; no seek/skip), live track-title updates, active-track deletion stop guards, `ActiveSessionBanner` tap-to-return, and idle/completed **Edit** → `QuickMeditateSetup` all behave identically to saved sessions.
+- **Dynamic Localization:** The Quick Meditate display title is always resolved from the localized `quick_meditate_title` resource (never hardcoded as a static string). Switching `English` ↔ `မြန်မာ` immediately updates `QuickMeditateSetup`, `QuickMeditatePlayer`, `ActiveSessionBanner`, and active playback notification/Now Playing metadata.

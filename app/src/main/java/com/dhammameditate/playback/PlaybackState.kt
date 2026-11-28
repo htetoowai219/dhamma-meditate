@@ -13,6 +13,8 @@ data class PlaybackSnapshot(
     val activeTrackId: String? = null,
     val activeTrackTitle: String? = null,
     val activeTrackIds: Set<String> = emptySet(),
+    val activeIntroTrackIds: List<String> = emptyList(),
+    val activeMainTrackIds: List<String> = emptyList(),
     val currentZone: QueueZone? = null,
     val currentQueueIndex: Int = 0,
     val zoneTrackNumber: Int = 0,

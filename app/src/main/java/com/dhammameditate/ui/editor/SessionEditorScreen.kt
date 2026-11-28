@@ -474,7 +474,7 @@ private fun SessionNameCard(
 }
 
 @Composable
-private fun QueueZoneCard(
+internal fun QueueZoneCard(
     title: String,
     subtitle: String,
     items: List<EditorQueueItem>,
@@ -673,7 +673,7 @@ private fun QueueTrackRow(
 }
 
 @Composable
-private fun SessionTimerCard(
+internal fun SessionTimerCard(
     mainTotalDurationMs: Long,
     selectedDurationMs: Long,
     isFullSelected: Boolean,
@@ -863,7 +863,7 @@ private fun EditorPresetChip(
 }
 
 @Composable
-private fun TrackPickerSheetContent(
+internal fun TrackPickerSheetContent(
     zone: QueueZone,
     tracks: List<TrackEntity>,
     onSelectTrack: (TrackEntity) -> Unit,

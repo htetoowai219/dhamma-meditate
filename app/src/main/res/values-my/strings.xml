@@ -243,4 +243,16 @@
     <string name="tutorial_create_session_step5_title">အမည်ပေး၍ သိမ်းဆည်းပါ</string>
     <string name="tutorial_create_session_step5_body">ဤစာမျက်နှာ အပေါ်ဆုံးတွင် တရားချိန် အမည် ထည့်သွင်းပြီး ကမ္မဋ္ဌာန်းတရားနှင့် ကြာချိန် အဆင်သင့်ဖြစ်ပါက \"တရားချိန် သိမ်းဆည်းမည်\" ကို နှိပ်ပါ။</string>
     <string name="tutorial_create_session_step5_hint">လမ်းညွှန်ကို အဆုံးသတ်၍ တရားချိန် စတင်ဖန်တီးရန် \"နားလည်ပါပြီ\" ကို နှိပ်ပါ။</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 6: Quick Meditate (v0.5.0)                                    -->
+    <!-- =================================================================== -->
+    <string name="quick_meditate_title">အမြန်တရားထိုင်မည်</string>
+    <string name="quick_meditate_reset">အကုန်ဖျက်မည်</string>
+    <string name="quick_meditate_start_button">တရားစထိုင်မည်</string>
+    <string name="quick_meditate_active_notice">အမြန်တရားထိုင်ခြင်း လုပ်ဆောင်နေပါသည်။ ယခုထပ်မံစတင်လျှင် ၎င်းလုပ်ဆောင်ချက်အား အစားထိုးလုပ်ဆောင်ထားမည်ဖြစ်ပါသည်</string>
+    <string name="quick_meditate_unavailable_title">အမြန်တရားထိုင်ခြင်း မလုပ်ဆောင်နိုင်သေးပါ</string>
+    <string name="quick_meditate_unavailable_body">အနည်းဆုံး ကမ္မဋ္ဌာန်းတရား တစ်ပုဒ်ထည့်သွင်းပြီးမှသာ အမြန်တရားထိုင်ခြင်း စတင်နိုင်ပါမည်</string>
+    <string name="quick_meditate_open_setup">အမြန်တရားထိုင်ခြင်း ဖွင့်ရန်</string>
+    <string name="quick_meditate_edit_cd">အမြန်တရားထိုင်ခြင်းအား ပြင်ဆင်ရန်</string>
 </resources>

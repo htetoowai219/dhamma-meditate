@@ -4,11 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.dhammameditate.data.local.QueueZone
+import com.dhammameditate.data.local.SessionEntity
+import com.dhammameditate.data.preferences.QuickMeditateStore
+import com.dhammameditate.data.repository.QueueTrackItem
 import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.SessionWithQueues
+import com.dhammameditate.data.repository.TrackRepository
 import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackSnapshot
 import com.dhammameditate.playback.PlaybackStatus
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -18,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 
 data class SessionPlayerUiState(
     val isLoading: Boolean = true,
+    val isQuickMeditate: Boolean = false,
     val session: SessionWithQueues? = null,
     val status: PlaybackStatus = PlaybackStatus.IDLE,
     val currentZone: QueueZone? = null,
@@ -55,20 +61,81 @@ private data class SessionLoadResult(
 class SessionPlayerViewModel(
     private val sessionId: String,
     sessionRepository: SessionRepository,
+    quickMeditateStore: QuickMeditateStore,
+    trackRepository: TrackRepository,
     private val playbackClient: PlaybackClient
 ) : ViewModel() {
 
-    val uiState: StateFlow<SessionPlayerUiState> = combine(
+    private val isQuickMeditate: Boolean = sessionId == PlaybackClient.QUICK_MEDITATE_SESSION_ID
+
+    private val sessionLoadFlow: Flow<SessionLoadResult> = if (isQuickMeditate) {
+        combine(
+            quickMeditateStore.draft,
+            trackRepository.observeTracks(),
+            playbackClient.state
+        ) { draft, tracks, playback ->
+            val tracksById = tracks.associateBy { it.id }
+            val useActivePlaybackQueue = playback.activeSessionId == sessionId &&
+                playback.isActive &&
+                playback.activeMainTrackIds.isNotEmpty()
+
+            val (introTracks, mainTracks, targetDurationMs) = if (useActivePlaybackQueue) {
+                Triple(
+                    playback.activeIntroTrackIds.mapNotNull { tracksById[it] },
+                    playback.activeMainTrackIds.mapNotNull { tracksById[it] },
+                    playback.targetDurationMs
+                )
+            } else {
+                val resolved = draft.reconcile(tracksById)
+                Triple(resolved.introTracks, resolved.mainTracks, resolved.targetDurationMs)
+            }
+
+            if (mainTracks.isEmpty()) {
+                SessionLoadResult(isLoading = false, session = null)
+            } else {
+                val ephemeralSession = SessionWithQueues(
+                    session = SessionEntity(
+                        id = PlaybackClient.QUICK_MEDITATE_SESSION_ID,
+                        name = "Quick Meditate",
+                        targetDurationMs = targetDurationMs,
+                        createdAtEpochMs = 0L,
+                        updatedAtEpochMs = 0L
+                    ),
+                    introItems = introTracks.mapIndexed { index, track ->
+                        QueueTrackItem(
+                            entryId = "quick_intro_${index}_${track.id}",
+                            zone = QueueZone.INTRO,
+                            position = index,
+                            track = track
+                        )
+                    },
+                    mainItems = mainTracks.mapIndexed { index, track ->
+                        QueueTrackItem(
+                            entryId = "quick_main_${index}_${track.id}",
+                            zone = QueueZone.MAIN,
+                            position = index,
+                            track = track
+                        )
+                    }
+                )
+                SessionLoadResult(isLoading = false, session = ephemeralSession)
+            }
+        }.onStart { emit(SessionLoadResult(isLoading = true, session = null)) }
+    } else {
         sessionRepository.observeSession(sessionId)
             .map { SessionLoadResult(isLoading = false, session = it) }
-            .onStart { emit(SessionLoadResult(isLoading = true, session = null)) },
+            .onStart { emit(SessionLoadResult(isLoading = true, session = null)) }
+    }
+
+    val uiState: StateFlow<SessionPlayerUiState> = combine(
+        sessionLoadFlow,
         playbackClient.state
     ) { loadResult, playback ->
         buildUiState(loadResult, playback)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000L),
-        initialValue = SessionPlayerUiState()
+        initialValue = SessionPlayerUiState(isQuickMeditate = isQuickMeditate)
     )
 
     private fun buildUiState(
@@ -125,6 +192,7 @@ class SessionPlayerViewModel(
 
         return SessionPlayerUiState(
             isLoading = loadResult.isLoading,
+            isQuickMeditate = isQuickMeditate,
             session = session,
             status = status,
             currentZone = if (isThisSessionLoaded && isSessionActive) playback.currentZone else null,
@@ -142,7 +210,15 @@ class SessionPlayerViewModel(
         val current = uiState.value
         val session = current.session ?: return
         if (!session.isPlayable) return
-        playbackClient.startSavedSession(session.id)
+        if (isQuickMeditate) {
+            playbackClient.startQuickMeditate(
+                introTrackIds = session.introItems.map { it.track.id },
+                mainTrackIds = session.mainItems.map { it.track.id },
+                targetDurationMs = session.targetDurationMs
+            )
+        } else {
+            playbackClient.startSavedSession(session.id)
+        }
     }
 
     fun pauseSession() {
@@ -170,6 +246,8 @@ class SessionPlayerViewModel(
         fun factory(
             sessionId: String,
             sessionRepository: SessionRepository,
+            quickMeditateStore: QuickMeditateStore,
+            trackRepository: TrackRepository,
             playbackClient: PlaybackClient
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -177,6 +255,8 @@ class SessionPlayerViewModel(
                 return SessionPlayerViewModel(
                     sessionId = sessionId,
                     sessionRepository = sessionRepository,
+                    quickMeditateStore = quickMeditateStore,
+                    trackRepository = trackRepository,
                     playbackClient = playbackClient
                 ) as T
             }

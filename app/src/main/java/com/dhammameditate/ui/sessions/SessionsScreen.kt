@@ -7,13 +7,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -33,6 +36,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,6 +82,7 @@ fun SessionsScreen(
     viewModel: SessionsViewModel,
     currentLanguage: AppLanguage,
     onSelectLanguage: (AppLanguage) -> Unit,
+    onQuickMeditate: () -> Unit,
     onNewSession: () -> Unit,
     onOpenSession: (String) -> Unit,
     onEditSession: (String) -> Unit,
@@ -166,23 +172,58 @@ fun SessionsScreen(
                     onClick = onOpenTutorials,
                     modifier = Modifier.align(Alignment.End)
                 )
-                Button(
-                    onClick = onNewSession,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Saffron,
-                        contentColor = PureWhite
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp),
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
-                        .tutorialTarget(TutorialTargetId.SESSIONS_NEW_BUTTON)
+                        .height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.sessions_new_button),
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    Button(
+                        onClick = onQuickMeditate,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Saffron,
+                            contentColor = PureWhite
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .heightIn(min = 54.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.quick_meditate_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = onNewSession,
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, MonasticMaroon),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = PureWhite,
+                            contentColor = MonasticMaroon
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .heightIn(min = 54.dp)
+                            .tutorialTarget(TutorialTargetId.SESSIONS_NEW_BUTTON)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.sessions_new_button),
+                            style = MaterialTheme.typography.labelLarge,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }

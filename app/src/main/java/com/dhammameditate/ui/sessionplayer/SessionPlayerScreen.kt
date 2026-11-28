@@ -56,6 +56,7 @@ import com.dhammameditate.R
 import com.dhammameditate.data.repository.QueueTrackItem
 import com.dhammameditate.data.repository.SessionWithQueues
 import com.dhammameditate.playback.DistractionChecker
+import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackStatus
 import com.dhammameditate.playback.TimerValidation
 import com.dhammameditate.ui.common.rememberSessionStartLauncher
@@ -104,6 +105,7 @@ fun SessionPlayerScreen(
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         SessionPlayerTopBar(
+            isQuickMeditate = uiState.isQuickMeditate,
             canEdit = uiState.canEdit,
             onEditClick = { uiState.session?.let { onEditSession(it.id) } },
             onBack = onBack
@@ -141,20 +143,39 @@ fun SessionPlayerScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = stringResource(R.string.session_player_unavailable_title),
+                                text = stringResource(
+                                    if (uiState.isQuickMeditate) {
+                                        R.string.quick_meditate_unavailable_title
+                                    } else {
+                                        R.string.session_player_unavailable_title
+                                    }
+                                ),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = InkPrimary
+                                color = InkPrimary,
+                                textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = stringResource(R.string.session_player_unavailable_body),
+                                text = stringResource(
+                                    if (uiState.isQuickMeditate) {
+                                        R.string.quick_meditate_unavailable_body
+                                    } else {
+                                        R.string.session_player_unavailable_body
+                                    }
+                                ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = InkSecondary,
                                 textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
-                                onClick = onBack,
+                                onClick = {
+                                    if (uiState.isQuickMeditate) {
+                                        onEditSession(PlaybackClient.QUICK_MEDITATE_SESSION_ID)
+                                    } else {
+                                        onBack()
+                                    }
+                                },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Saffron,
@@ -163,7 +184,13 @@ fun SessionPlayerScreen(
                                 elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
                             ) {
                                 Text(
-                                    text = stringResource(R.string.editor_back_to_sessions),
+                                    text = stringResource(
+                                        if (uiState.isQuickMeditate) {
+                                            R.string.quick_meditate_open_setup
+                                        } else {
+                                            R.string.editor_back_to_sessions
+                                        }
+                                    ),
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
@@ -184,7 +211,11 @@ fun SessionPlayerScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = session.name,
+                        text = if (uiState.isQuickMeditate) {
+                            stringResource(R.string.quick_meditate_title)
+                        } else {
+                            session.name
+                        },
                         style = MaterialTheme.typography.titleLarge,
                         color = PureWhite,
                         textAlign = TextAlign.Center,
@@ -281,6 +312,7 @@ fun SessionPlayerScreen(
 
 @Composable
 private fun SessionPlayerTopBar(
+    isQuickMeditate: Boolean,
     canEdit: Boolean,
     onEditClick: () -> Unit,
     onBack: () -> Unit
@@ -311,7 +343,13 @@ private fun SessionPlayerTopBar(
         ) {
             Icon(
                 imageVector = Icons.Outlined.Edit,
-                contentDescription = stringResource(R.string.session_player_edit_cd),
+                contentDescription = stringResource(
+                    if (isQuickMeditate) {
+                        R.string.quick_meditate_edit_cd
+                    } else {
+                        R.string.session_player_edit_cd
+                    }
+                ),
                 tint = if (canEdit) PureWhite else WhiteMuted.copy(alpha = 0.35f)
             )
         }

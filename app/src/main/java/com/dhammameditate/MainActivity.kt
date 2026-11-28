@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dhammameditate.data.preferences.withAppLanguage
+import com.dhammameditate.playback.PlaybackClient
 import com.dhammameditate.playback.PlaybackSnapshot
 import com.dhammameditate.ui.common.LocalAppLocalizedContext
 import com.dhammameditate.ui.editor.SessionEditorScreen
@@ -51,6 +52,8 @@ import com.dhammameditate.ui.library.LibraryScreen
 import com.dhammameditate.ui.library.LibraryViewModel
 import com.dhammameditate.ui.player.PlayerScreen
 import com.dhammameditate.ui.player.PlayerViewModel
+import com.dhammameditate.ui.quickmeditate.QuickMeditateScreen
+import com.dhammameditate.ui.quickmeditate.QuickMeditateViewModel
 import com.dhammameditate.ui.sessionplayer.SessionPlayerScreen
 import com.dhammameditate.ui.sessionplayer.SessionPlayerViewModel
 import com.dhammameditate.ui.sessions.SessionsScreen
@@ -93,6 +96,8 @@ private sealed interface AppDestination {
 
     data class SessionPlayer(val sessionId: String) : AppDestination
     data class QuickTrackPlayer(val trackId: String) : AppDestination
+    data class QuickMeditateSetup(val instanceId: Long = 0L) : AppDestination
+    data object QuickMeditatePlayer : AppDestination
 }
 
 private val AppDestinationSaver = listSaver<AppDestination, String>(
@@ -108,6 +113,8 @@ private val AppDestinationSaver = listSaver<AppDestination, String>(
 
             is AppDestination.SessionPlayer -> listOf("SESSION_PLAYER", destination.sessionId)
             is AppDestination.QuickTrackPlayer -> listOf("QUICK_PLAYER", destination.trackId)
+            is AppDestination.QuickMeditateSetup -> listOf("QUICK_MEDITATE_SETUP", destination.instanceId.toString())
+            AppDestination.QuickMeditatePlayer -> listOf("QUICK_MEDITATE_PLAYER")
         }
     },
     restore = { list ->
@@ -131,6 +138,11 @@ private val AppDestinationSaver = listSaver<AppDestination, String>(
             "QUICK_PLAYER" -> list.getOrNull(1)?.takeIf { it.isNotEmpty() }
                 ?.let { AppDestination.QuickTrackPlayer(it) }
                 ?: AppDestination.Home(HomeTab.LIBRARY)
+
+            "QUICK_MEDITATE_SETUP" -> AppDestination.QuickMeditateSetup(
+                instanceId = list.getOrNull(1)?.toLongOrNull() ?: 0L
+            )
+            "QUICK_MEDITATE_PLAYER" -> AppDestination.QuickMeditatePlayer
 
             else -> AppDestination.Home(HomeTab.SESSIONS)
         }
@@ -161,6 +173,9 @@ private val TutorialSessionStateSaver = listSaver<TutorialSessionState?, String>
 private fun activePlaybackDestination(playback: PlaybackSnapshot): AppDestination? {
     if (!playback.isActive) return null
     val sessionId = playback.activeSessionId
+    if (sessionId == PlaybackClient.QUICK_MEDITATE_SESSION_ID) {
+        return AppDestination.QuickMeditatePlayer
+    }
     if (sessionId != null) {
         return AppDestination.SessionPlayer(sessionId)
     }
@@ -223,7 +238,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val isActivePlaybackDestination = destination is AppDestination.SessionPlayer ||
-                    destination is AppDestination.QuickTrackPlayer
+                    destination is AppDestination.QuickTrackPlayer ||
+                    destination is AppDestination.QuickMeditatePlayer
 
                 LaunchedEffect(hasSeenTutorialOffer, isActivePlaybackDestination) {
                     if (
@@ -315,6 +331,12 @@ class MainActivity : ComponentActivity() {
                                             viewModel = sessionsViewModel,
                                             currentLanguage = currentLanguage,
                                             onSelectLanguage = container.appLanguageStore::setLanguage,
+                                            onQuickMeditate = {
+                                                val instanceId = editorCounter++
+                                                destination = AppDestination.QuickMeditateSetup(
+                                                    instanceId = instanceId
+                                                )
+                                            },
                                             onNewSession = {
                                                 val instanceId = editorCounter++
                                                 destination = AppDestination.SessionEditor(
@@ -397,6 +419,8 @@ class MainActivity : ComponentActivity() {
                             factory = SessionPlayerViewModel.factory(
                                 sessionId = current.sessionId,
                                 sessionRepository = container.sessionRepository,
+                                quickMeditateStore = container.quickMeditateStore,
+                                trackRepository = container.trackRepository,
                                 playbackClient = container.playbackClient
                             )
                         )
@@ -410,6 +434,57 @@ class MainActivity : ComponentActivity() {
                                 destination = AppDestination.SessionEditor(
                                     sessionId = sessionId,
                                     returnToPlayerSessionId = sessionId,
+                                    instanceId = instanceId
+                                )
+                            },
+                            onBack = {
+                                destination = AppDestination.Home(HomeTab.SESSIONS)
+                            }
+                        )
+                    }
+
+                    is AppDestination.QuickMeditateSetup -> {
+                        val quickMeditateViewModel: QuickMeditateViewModel = viewModel(
+                            key = "quick_meditate_setup_${current.instanceId}",
+                            factory = QuickMeditateViewModel.factory(
+                                quickMeditateStore = container.quickMeditateStore,
+                                trackRepository = container.trackRepository,
+                                playbackClient = container.playbackClient
+                            )
+                        )
+                        QuickMeditateScreen(
+                            viewModel = quickMeditateViewModel,
+                            distractionChecker = container.distractionChecker,
+                            askedNotificationPermission = askedNotificationPermission,
+                            onNotificationPermissionAsked = { askedNotificationPermission = true },
+                            onBack = {
+                                destination = AppDestination.Home(HomeTab.SESSIONS)
+                            },
+                            onStarted = {
+                                destination = AppDestination.QuickMeditatePlayer
+                            }
+                        )
+                    }
+
+                    AppDestination.QuickMeditatePlayer -> {
+                        val quickPlayerViewModel: SessionPlayerViewModel = viewModel(
+                            key = "quick_meditate_player",
+                            factory = SessionPlayerViewModel.factory(
+                                sessionId = PlaybackClient.QUICK_MEDITATE_SESSION_ID,
+                                sessionRepository = container.sessionRepository,
+                                quickMeditateStore = container.quickMeditateStore,
+                                trackRepository = container.trackRepository,
+                                playbackClient = container.playbackClient
+                            )
+                        )
+                        SessionPlayerScreen(
+                            viewModel = quickPlayerViewModel,
+                            distractionChecker = container.distractionChecker,
+                            askedNotificationPermission = askedNotificationPermission,
+                            onNotificationPermissionAsked = { askedNotificationPermission = true },
+                            onEditSession = {
+                                val instanceId = editorCounter++
+                                destination = AppDestination.QuickMeditateSetup(
                                     instanceId = instanceId
                                 )
                             },

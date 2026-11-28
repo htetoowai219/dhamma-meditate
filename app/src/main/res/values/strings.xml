@@ -240,4 +240,16 @@
     <string name="tutorial_create_session_step5_title">Name and save your session</string>
     <string name="tutorial_create_session_step5_body">Enter a Session Name at the top of this screen, then tap Save Session once your Main Queue and timer are ready.</string>
     <string name="tutorial_create_session_step5_hint">Tap Got it to finish and start building your session.</string>
+
+    <!-- =================================================================== -->
+    <!-- BATCH 6: Quick Meditate (v0.5.0)                                    -->
+    <!-- =================================================================== -->
+    <string name="quick_meditate_title">Quick Meditate</string>
+    <string name="quick_meditate_reset">Reset</string>
+    <string name="quick_meditate_start_button">Start Meditation</string>
+    <string name="quick_meditate_active_notice">Quick Meditate is currently playing. Starting again will replace it and begin fresh from 00:00.</string>
+    <string name="quick_meditate_unavailable_title">Quick Meditate not ready</string>
+    <string name="quick_meditate_unavailable_body">Select at least one Main Queue track to begin a Quick Meditate session.</string>
+    <string name="quick_meditate_open_setup">Open Quick Meditate</string>
+    <string name="quick_meditate_edit_cd">Edit Quick Meditate</string>
 </resources>

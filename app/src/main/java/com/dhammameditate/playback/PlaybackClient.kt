@@ -31,6 +31,27 @@ class PlaybackClient(
         context.startService(intent)
     }
 
+    fun startQuickMeditate(
+        introTrackIds: List<String>,
+        mainTrackIds: List<String>,
+        targetDurationMs: Long
+    ) {
+        stateStore.clearError()
+        val intent = Intent(context, MeditationPlaybackService::class.java).apply {
+            action = MeditationPlaybackService.ACTION_START_QUICK_MEDITATE
+            putStringArrayListExtra(
+                MeditationPlaybackService.EXTRA_INTRO_TRACK_IDS,
+                ArrayList(introTrackIds)
+            )
+            putStringArrayListExtra(
+                MeditationPlaybackService.EXTRA_MAIN_TRACK_IDS,
+                ArrayList(mainTrackIds)
+            )
+            putExtra(MeditationPlaybackService.EXTRA_TARGET_DURATION_MS, targetDurationMs)
+        }
+        context.startService(intent)
+    }
+
     fun pause() {
         val intent = Intent(context, MeditationPlaybackService::class.java).apply {
             action = MeditationPlaybackService.ACTION_PAUSE_SESSION
@@ -132,7 +153,8 @@ class PlaybackClient(
         stateStore.clearError()
     }
 
-    private companion object {
-        const val STOP_WAIT_TIMEOUT_MS = 1_500L
+    companion object {
+        const val QUICK_MEDITATE_SESSION_ID = "__quick_meditate__"
+        private const val STOP_WAIT_TIMEOUT_MS = 1_500L
     }
 }

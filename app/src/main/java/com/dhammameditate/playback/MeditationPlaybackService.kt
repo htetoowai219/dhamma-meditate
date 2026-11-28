@@ -25,6 +25,7 @@ import com.dhammameditate.DhammaMeditateApp
 import com.dhammameditate.MainActivity
 import com.dhammameditate.R
 import com.dhammameditate.data.local.QueueZone
+import com.dhammameditate.data.local.TrackEntity
 import com.dhammameditate.data.preferences.AppLanguageStore
 import com.dhammameditate.data.repository.SessionRepository
 import com.dhammameditate.data.repository.TrackRepository
@@ -50,6 +51,11 @@ class MeditationPlaybackService : MediaSessionService() {
         val zone: QueueZone,
         val zoneTrackNumber: Int,
         val zoneTrackCount: Int
+    )
+
+    private data class QueueTrackSpec(
+        val mediaId: String,
+        val track: TrackEntity
     )
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -306,6 +312,18 @@ class MeditationPlaybackService : MediaSessionService() {
         stopResetButton = buildStopResetButton()
         mediaSession?.setMediaButtonPreferences(listOf(stopResetButton))
 
+        if (activeSessionId == PlaybackClient.QUICK_MEDITATE_SESSION_ID) {
+            val localizedQuickTitle = localizedString(R.string.quick_meditate_title)
+            activeSessionName = localizedQuickTitle
+            stateStore.update { snapshot ->
+                if (snapshot.activeSessionId == PlaybackClient.QUICK_MEDITATE_SESSION_ID) {
+                    snapshot.copy(activeSessionName = localizedQuickTitle)
+                } else {
+                    snapshot
+                }
+            }
+        }
+
         if (activeQueueEntries.isEmpty() || exoPlayer.mediaItemCount != activeQueueEntries.size) {
             return
         }
@@ -360,6 +378,17 @@ class MeditationPlaybackService : MediaSessionService() {
                 if (!sessionId.isNullOrBlank()) {
                     startSavedSession(sessionId)
                 }
+            }
+
+            ACTION_START_QUICK_MEDITATE -> {
+                val introIds = intent.getStringArrayListExtra(EXTRA_INTRO_TRACK_IDS).orEmpty()
+                val mainIds = intent.getStringArrayListExtra(EXTRA_MAIN_TRACK_IDS).orEmpty()
+                val targetDurationMs = intent.getLongExtra(EXTRA_TARGET_DURATION_MS, 0L)
+                startQuickMeditateSession(
+                    introTrackIds = introIds,
+                    mainTrackIds = mainIds,
+                    requestedTargetDurationMs = targetDurationMs
+                )
             }
 
             ACTION_PAUSE_SESSION -> pauseSession()
@@ -566,172 +595,227 @@ class MeditationPlaybackService : MediaSessionService() {
                     return@launch
                 }
 
-                if (session.mainItems.isEmpty()) {
-                    publishError(
-                        message = localizedString(R.string.playback_error_session_needs_main),
-                        errorTrackId = null,
-                        errorSessionId = sessionId
-                    )
-                    return@launch
-                }
-
-                val capped = TimerValidation.capDurationMs(
-                    requestedMs = session.targetDurationMs,
-                    maxDurationMs = session.mainTotalDurationMs,
-                    scopeLabel = TimerValidation.SCOPE_MAIN_QUEUE
+                startTwoZoneSession(
+                    sessionId = session.id,
+                    sessionName = session.name,
+                    introItems = session.introItems.map { QueueTrackSpec(it.entryId, it.track) },
+                    mainItems = session.mainItems.map { QueueTrackSpec(it.entryId, it.track) },
+                    requestedTargetDurationMs = session.targetDurationMs
                 )
-                if (capped.durationMs <= 0L) {
-                    publishError(
-                        message = localizedString(R.string.playback_error_session_invalid_timer),
-                        errorTrackId = null,
-                        errorSessionId = sessionId
-                    )
-                    return@launch
-                }
-
-                val introCount = session.introItems.size
-                val mainCount = session.mainItems.size
-
-                val queueEntries = ArrayList<ActiveQueueEntry>(introCount + mainCount)
-                val mediaItems = ArrayList<MediaItem>(introCount + mainCount)
-
-                val (resolvedIntroFiles, resolvedMainFiles) = withContext(Dispatchers.IO) {
-                    val intro = session.introItems.map { item ->
-                        val file = trackRepository.resolveAudioFile(item.track)
-                        Triple(item, file, file.exists() && file.canRead())
-                    }
-                    val main = session.mainItems.map { item ->
-                        val file = trackRepository.resolveAudioFile(item.track)
-                        Triple(item, file, file.exists() && file.canRead())
-                    }
-                    intro to main
-                }
-
-                for ((index, resolved) in resolvedIntroFiles.withIndex()) {
-                    val (item, file, isReadable) = resolved
-                    if (!isReadable) {
-                        publishError(
-                            message = localizedString(
-                                R.string.playback_error_missing_intro_track,
-                                item.track.title
-                            ),
-                            errorTrackId = null,
-                            errorSessionId = sessionId
-                        )
-                        return@launch
-                    }
-                    val trackNum = index + 1
-                    val subtitle = localizedString(
-                        R.string.notification_session_intro,
-                        session.name,
-                        trackNum.toString(),
-                        introCount.toString()
-                    )
-                    val metadata = MediaMetadata.Builder()
-                        .setTitle(item.track.title)
-                        .setSubtitle(subtitle)
-                        .setArtist(subtitle)
-                        .build()
-                    mediaItems.add(
-                        MediaItem.Builder()
-                            .setMediaId(item.entryId)
-                            .setUri(Uri.fromFile(file))
-                            .setMediaMetadata(metadata)
-                            .build()
-                    )
-                    queueEntries.add(
-                        ActiveQueueEntry(
-                            trackId = item.track.id,
-                            trackTitle = item.track.title,
-                            zone = QueueZone.INTRO,
-                            zoneTrackNumber = trackNum,
-                            zoneTrackCount = introCount
-                        )
-                    )
-                }
-
-                for ((index, resolved) in resolvedMainFiles.withIndex()) {
-                    val (item, file, isReadable) = resolved
-                    if (!isReadable) {
-                        publishError(
-                            message = localizedString(
-                                R.string.playback_error_missing_main_track,
-                                item.track.title
-                            ),
-                            errorTrackId = null,
-                            errorSessionId = sessionId
-                        )
-                        return@launch
-                    }
-                    val trackNum = index + 1
-                    val subtitle = localizedString(
-                        R.string.notification_session_main,
-                        session.name,
-                        trackNum.toString(),
-                        mainCount.toString()
-                    )
-                    val metadata = MediaMetadata.Builder()
-                        .setTitle(item.track.title)
-                        .setSubtitle(subtitle)
-                        .setArtist(subtitle)
-                        .build()
-                    mediaItems.add(
-                        MediaItem.Builder()
-                            .setMediaId(item.entryId)
-                            .setUri(Uri.fromFile(file))
-                            .setMediaMetadata(metadata)
-                            .build()
-                    )
-                    queueEntries.add(
-                        ActiveQueueEntry(
-                            trackId = item.track.id,
-                            trackTitle = item.track.title,
-                            zone = QueueZone.MAIN,
-                            zoneTrackNumber = trackNum,
-                            zoneTrackCount = mainCount
-                        )
-                    )
-                }
-
-                tickJob?.cancel()
-                tickJob = null
-
-                activeSessionId = session.id
-                activeSessionName = session.name
-                activeQueueEntries = queueEntries
-                activeTrackIds = queueEntries.map { it.trackId }.toSet()
-                activeIntroCount = introCount
-                activeMainCount = mainCount
-                currentQueueIndex = 0
-                activeTargetDurationMs = capped.durationMs
-
-                val hasIntro = introCount > 0
-                val startTick = timerEngine.start(
-                    targetDurationMs = capped.durationMs,
-                    hasIntro = hasIntro,
-                    nowMs = SystemClock.elapsedRealtime()
-                )
-
-                // Start-Fresh invariant: always index 0, 00:00, and full 1.0f volume
-                withInternalPlayerChange {
-                    exoPlayer.setMediaItems(mediaItems, /* startIndex = */ 0, /* startPositionMs = */ 0L)
-                    exoPlayer.volume = 1.0f
-                    exoPlayer.prepare()
-                    exoPlayer.play()
-                }
-
-                if (isPlaybackBlockedOrSuppressed()) {
-                    pauseTimerOnly()
-                } else {
-                    publishSnapshot(tick = startTick, errorMessage = null)
-                    if (!hasIntro) {
-                        startTickLoop()
-                    }
-                }
             } finally {
                 if (pendingStartSessionId == sessionId) {
                     pendingStartSessionId = null
                 }
+            }
+        }
+    }
+
+    private fun startQuickMeditateSession(
+        introTrackIds: List<String>,
+        mainTrackIds: List<String>,
+        requestedTargetDurationMs: Long
+    ) {
+        val sessionId = PlaybackClient.QUICK_MEDITATE_SESSION_ID
+        startSessionJob?.cancel()
+        pendingStartTrackId = null
+        pendingStartSessionId = sessionId
+        startSessionJob = serviceScope.launch {
+            try {
+                val uniqueIds = (introTrackIds + mainTrackIds).distinct()
+                val tracksById = uniqueIds.mapNotNull { id ->
+                    trackRepository.getTrack(id)?.let { id to it }
+                }.toMap()
+
+                val introItems = introTrackIds.mapIndexedNotNull { index, id ->
+                    tracksById[id]?.let { QueueTrackSpec("quick_intro_${index}_$id", it) }
+                }
+                val mainItems = mainTrackIds.mapIndexedNotNull { index, id ->
+                    tracksById[id]?.let { QueueTrackSpec("quick_main_${index}_$id", it) }
+                }
+
+                startTwoZoneSession(
+                    sessionId = sessionId,
+                    sessionName = localizedString(R.string.quick_meditate_title),
+                    introItems = introItems,
+                    mainItems = mainItems,
+                    requestedTargetDurationMs = requestedTargetDurationMs
+                )
+            } finally {
+                if (pendingStartSessionId == sessionId) {
+                    pendingStartSessionId = null
+                }
+            }
+        }
+    }
+
+    private suspend fun startTwoZoneSession(
+        sessionId: String,
+        sessionName: String,
+        introItems: List<QueueTrackSpec>,
+        mainItems: List<QueueTrackSpec>,
+        requestedTargetDurationMs: Long
+    ) {
+        if (mainItems.isEmpty()) {
+            publishError(
+                message = localizedString(R.string.playback_error_session_needs_main),
+                errorTrackId = null,
+                errorSessionId = sessionId
+            )
+            return
+        }
+
+        val mainTotalDurationMs = mainItems.sumOf { it.track.durationMs }
+        val capped = TimerValidation.capDurationMs(
+            requestedMs = requestedTargetDurationMs,
+            maxDurationMs = mainTotalDurationMs,
+            scopeLabel = TimerValidation.SCOPE_MAIN_QUEUE
+        )
+        if (capped.durationMs <= 0L) {
+            publishError(
+                message = localizedString(R.string.playback_error_session_invalid_timer),
+                errorTrackId = null,
+                errorSessionId = sessionId
+            )
+            return
+        }
+
+        val introCount = introItems.size
+        val mainCount = mainItems.size
+
+        val queueEntries = ArrayList<ActiveQueueEntry>(introCount + mainCount)
+        val mediaItems = ArrayList<MediaItem>(introCount + mainCount)
+
+        val (resolvedIntroFiles, resolvedMainFiles) = withContext(Dispatchers.IO) {
+            val intro = introItems.map { item ->
+                val file = trackRepository.resolveAudioFile(item.track)
+                Triple(item, file, file.exists() && file.canRead())
+            }
+            val main = mainItems.map { item ->
+                val file = trackRepository.resolveAudioFile(item.track)
+                Triple(item, file, file.exists() && file.canRead())
+            }
+            intro to main
+        }
+
+        for ((index, resolved) in resolvedIntroFiles.withIndex()) {
+            val (item, file, isReadable) = resolved
+            if (!isReadable) {
+                publishError(
+                    message = localizedString(
+                        R.string.playback_error_missing_intro_track,
+                        item.track.title
+                    ),
+                    errorTrackId = null,
+                    errorSessionId = sessionId
+                )
+                return
+            }
+            val trackNum = index + 1
+            val subtitle = localizedString(
+                R.string.notification_session_intro,
+                sessionName,
+                trackNum.toString(),
+                introCount.toString()
+            )
+            val metadata = MediaMetadata.Builder()
+                .setTitle(item.track.title)
+                .setSubtitle(subtitle)
+                .setArtist(subtitle)
+                .build()
+            mediaItems.add(
+                MediaItem.Builder()
+                    .setMediaId(item.mediaId)
+                    .setUri(Uri.fromFile(file))
+                    .setMediaMetadata(metadata)
+                    .build()
+            )
+            queueEntries.add(
+                ActiveQueueEntry(
+                    trackId = item.track.id,
+                    trackTitle = item.track.title,
+                    zone = QueueZone.INTRO,
+                    zoneTrackNumber = trackNum,
+                    zoneTrackCount = introCount
+                )
+            )
+        }
+
+        for ((index, resolved) in resolvedMainFiles.withIndex()) {
+            val (item, file, isReadable) = resolved
+            if (!isReadable) {
+                publishError(
+                    message = localizedString(
+                        R.string.playback_error_missing_main_track,
+                        item.track.title
+                    ),
+                    errorTrackId = null,
+                    errorSessionId = sessionId
+                )
+                return
+            }
+            val trackNum = index + 1
+            val subtitle = localizedString(
+                R.string.notification_session_main,
+                sessionName,
+                trackNum.toString(),
+                mainCount.toString()
+            )
+            val metadata = MediaMetadata.Builder()
+                .setTitle(item.track.title)
+                .setSubtitle(subtitle)
+                .setArtist(subtitle)
+                .build()
+            mediaItems.add(
+                MediaItem.Builder()
+                    .setMediaId(item.mediaId)
+                    .setUri(Uri.fromFile(file))
+                    .setMediaMetadata(metadata)
+                    .build()
+            )
+            queueEntries.add(
+                ActiveQueueEntry(
+                    trackId = item.track.id,
+                    trackTitle = item.track.title,
+                    zone = QueueZone.MAIN,
+                    zoneTrackNumber = trackNum,
+                    zoneTrackCount = mainCount
+                )
+            )
+        }
+
+        tickJob?.cancel()
+        tickJob = null
+
+        activeSessionId = sessionId
+        activeSessionName = sessionName
+        activeQueueEntries = queueEntries
+        activeTrackIds = queueEntries.map { it.trackId }.toSet()
+        activeIntroCount = introCount
+        activeMainCount = mainCount
+        currentQueueIndex = 0
+        activeTargetDurationMs = capped.durationMs
+
+        val hasIntro = introCount > 0
+        val startTick = timerEngine.start(
+            targetDurationMs = capped.durationMs,
+            hasIntro = hasIntro,
+            nowMs = SystemClock.elapsedRealtime()
+        )
+
+        // Start-Fresh invariant: always index 0, 00:00, and full 1.0f volume
+        withInternalPlayerChange {
+            exoPlayer.setMediaItems(mediaItems, /* startIndex = */ 0, /* startPositionMs = */ 0L)
+            exoPlayer.volume = 1.0f
+            exoPlayer.prepare()
+            exoPlayer.play()
+        }
+
+        if (isPlaybackBlockedOrSuppressed()) {
+            pauseTimerOnly()
+        } else {
+            publishSnapshot(tick = startTick, errorMessage = null)
+            if (!hasIntro) {
+                startTickLoop()
             }
         }
     }
@@ -741,7 +825,17 @@ class MeditationPlaybackService : MediaSessionService() {
             PlaybackStatus.INTRO_PAUSED, PlaybackStatus.PAUSED -> resumeSession()
             PlaybackStatus.IDLE, PlaybackStatus.COMPLETED -> {
                 val sessionId = activeSessionId
-                if (sessionId != null) {
+                if (sessionId == PlaybackClient.QUICK_MEDITATE_SESSION_ID) {
+                    val introIds = activeQueueEntries
+                        .filter { it.zone == QueueZone.INTRO }
+                        .map { it.trackId }
+                    val mainIds = activeQueueEntries
+                        .filter { it.zone == QueueZone.MAIN }
+                        .map { it.trackId }
+                    if (mainIds.isNotEmpty() && activeTargetDurationMs > 0L) {
+                        startQuickMeditateSession(introIds, mainIds, activeTargetDurationMs)
+                    }
+                } else if (sessionId != null) {
                     startSavedSession(sessionId)
                 } else {
                     val quickTrackId = activeQueueEntries.firstOrNull()?.trackId
@@ -989,6 +1083,12 @@ class MeditationPlaybackService : MediaSessionService() {
                 activeTrackId = currentEntry?.trackId,
                 activeTrackTitle = currentEntry?.trackTitle,
                 activeTrackIds = activeTrackIds,
+                activeIntroTrackIds = activeQueueEntries
+                    .filter { it.zone == QueueZone.INTRO }
+                    .map { it.trackId },
+                activeMainTrackIds = activeQueueEntries
+                    .filter { it.zone == QueueZone.MAIN }
+                    .map { it.trackId },
                 currentZone = currentEntry?.zone,
                 currentQueueIndex = currentQueueIndex,
                 zoneTrackNumber = currentEntry?.zoneTrackNumber ?: 0,
@@ -1102,6 +1202,7 @@ class MeditationPlaybackService : MediaSessionService() {
     companion object {
         const val ACTION_START_SESSION = "com.dhammameditate.action.START_SESSION"
         const val ACTION_START_SAVED_SESSION = "com.dhammameditate.action.START_SAVED_SESSION"
+        const val ACTION_START_QUICK_MEDITATE = "com.dhammameditate.action.START_QUICK_MEDITATE"
         const val ACTION_PAUSE_SESSION = "com.dhammameditate.action.PAUSE_SESSION"
         const val ACTION_RESUME_SESSION = "com.dhammameditate.action.RESUME_SESSION"
         const val ACTION_SKIP_TO_MAIN = "com.dhammameditate.action.SKIP_TO_MAIN"
@@ -1113,6 +1214,8 @@ class MeditationPlaybackService : MediaSessionService() {
         const val EXTRA_TRACK_ID = "extra_track_id"
         const val EXTRA_TRACK_TITLE = "extra_track_title"
         const val EXTRA_SESSION_ID = "extra_session_id"
+        const val EXTRA_INTRO_TRACK_IDS = "extra_intro_track_ids"
+        const val EXTRA_MAIN_TRACK_IDS = "extra_main_track_ids"
         const val EXTRA_TARGET_DURATION_MS = "extra_target_duration_ms"
 
         private const val NORMAL_TICK_MS = 250L

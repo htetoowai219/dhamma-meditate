@@ -3,8 +3,8 @@
 A minimalist, 100% offline mobile app that combines a local audio player with a programmable meditation timer for Burmese Dhamma (တရား) talks and preparation tracks. Users assemble reusable two-zone sessions (untimed Intro + timed Main) and meditate reliably with the screen off.
 
 - **Project Mode:** Prototype / MVP — Solid core playback, strict timer validation, and screen-off reliability without store-release ceremony (Cap: 2–4 phases per release)
-- **Build Approach:** Tracer Bullet for v0.1.0 & v0.4.0 (prove the core vertical slice end to end first, then expand); Journey for v0.2.0 & v0.3.0 (finish one complete user flow deep per phase)
-- **Source Idea:** `docs/scope/idea.md` (v0.1.0–v0.2.0; updated for v0.4.0 Guided Tutorials) + `/scope` enrollment (v0.3.0: Burmese Language Localization)
+- **Build Approach:** Tracer Bullet for v0.1.0 & v0.4.0 (prove the core vertical slice end to end first, then expand); Journey for v0.2.0, v0.3.0 & v0.5.0 (finish one complete user flow deep per phase)
+- **Source Idea:** `docs/scope/idea.md` (v0.1.0–v0.2.0; updated for v0.4.0 Guided Tutorials and v0.5.0 Quick Meditate) + `/scope` enrollment (v0.3.0: Burmese Language Localization)
 - **Tech Stack:** Native Android (Kotlin, Gradle Kotlin DSL, `compileSdk = 35`, `minSdk = 26`), Jetpack Compose + Material 3 (flat Monastic Maroon & Saffron tokens, custom zero-dependency Compose spotlight overlay), Jetpack Media3 (`ExoPlayer` + `MediaSessionService`), Room SQLite (KSP), `SharedPreferences`, Kotlin Coroutines + `StateFlow`, manual `AppContainer` DI, JUnit 4
 
 ## Non-Goals & Deferred
@@ -17,6 +17,7 @@ Out of scope for the current roadmap so phases stay focused:
 - **Video-to-Audio Extraction & DRM Audio:** Imports standard local audio files only.
 - **Additional Guided Tutorials (Beyond the Initial Two):** Extra walkthroughs (e.g., playback controls, track renaming, Intro Skip to Main) are deferred; the tutorial engine is built to be extensible so they can be added later without rework.
 - **Mandatory File Imports or Synthetic Data During Tutorials:** Walkthroughs run safely over live screens without forcing a real OS file import or saving fake tracks/sessions.
+- **Quick Meditate Guided Tutorial & "Save as Session" Conversion:** Deferred to keep v0.5.0 focused; the existing two guided tutorials remain unchanged, and Quick Meditate stays strictly one-off without a template-save flow.
 
 ## At a Glance
 
@@ -30,6 +31,7 @@ Out of scope for the current roadmap so phases stay focused:
 | 06 | Burmese Language Localization & v0.3.0 Release Prep | Verified | [06-burmese-language-localization-and-v0-3-0-release-prep.md](plans/06-burmese-language-localization-and-v0-3-0-release-prep.md) |
 | 07 | Guided Tutorial Foundation & "How to Add an Audio" | Verified | [07-guided-tutorial-foundation-and-how-to-add-an-audio.md](plans/07-guided-tutorial-foundation-and-how-to-add-an-audio.md) |
 | 08 | "How to Create a Session" Walkthrough, Burmese Copy & v0.4.0 Release Prep | Verified | [08-how-to-create-a-session-burmese-copy-and-v0-4-0-release-prep.md](plans/08-how-to-create-a-session-burmese-copy-and-v0-4-0-release-prep.md) |
+| 09 | Quick Meditate & v0.5.0 Release Prep | Verified | [09-quick-meditate-and-v0-5-0-release-prep.md](plans/09-quick-meditate-and-v0-5-0-release-prep.md) |
 
 ---
 
@@ -138,3 +140,16 @@ Plan: [08-how-to-create-a-session-burmese-copy-and-v0-4-0-release-prep.md](plans
   - [x] Collect all 41 Burmese tutorial strings via 2 interactive batches (zero auto-translation) and write `res/values-my/strings.xml`
   - [x] Update `docs/spec/dhammameditate-shared-spec.md` to v1.3 and bump `app/build.gradle.kts` to `versionCode = 4` / `versionName = "0.4.0"`
 - [x] Verify phase: `/check verify "How to Create a Session" Walkthrough, Burmese Copy & v0.4.0 Release Prep`
+
+### 09. Quick Meditate & v0.5.0 Release Prep · Verified
+Add a one-off **Quick Meditate** flow from the home page so users can select optional Intro audio, required Main audio, and a validated timer, then start meditating immediately without saving a session template. Remember the user's last Quick Meditate selections across opens with a **Clear all / Reset** action, localize all new UI copy into English and Burmese (using your supplied Burmese translations—zero auto-translation), update the shared iOS spec to v1.4, and bump Android to `v0.5.0`.
+**Done when:** Tapping **Quick Meditate** on the home page opens the dedicated setup screen (no session name field, clear **Start** and **Clear all / Reset** actions); users can pick Intro/Main audio and a validated timer and launch directly into playback (including the existing distraction check and off-screen playback behavior) without creating a saved session in the Sessions list; the last Quick Meditate selections are remembered on next open (gracefully dropping any deleted library tracks) and wiped cleanly by **Clear all / Reset**; all new strings switch cleanly between `English` and `မြန်မာ` using only your provided Burmese copy; `docs/spec/dhammameditate-shared-spec.md` is updated to v1.4; and `app/build.gradle.kts` is bumped to `versionCode = 5` and `versionName = "0.5.0"`.
+Plan: [09-quick-meditate-and-v0-5-0-release-prep.md](plans/09-quick-meditate-and-v0-5-0-release-prep.md) · Code: `app/src/main/java/com/dhammameditate/data/preferences/QuickMeditateStore.kt`, `app/src/main/java/com/dhammameditate/ui/quickmeditate/`, `app/src/main/java/com/dhammameditate/playback/`, `app/src/main/java/com/dhammameditate/ui/sessionplayer/`, `app/src/main/java/com/dhammameditate/ui/sessions/SessionsScreen.kt`, `app/src/main/java/com/dhammameditate/MainActivity.kt`, `app/src/main/res/values/strings.xml`, `app/src/main/res/values-my/strings.xml`, `app/src/test/java/com/dhammameditate/data/preferences/QuickMeditateDraftTest.kt`, `docs/spec/dhammameditate-shared-spec.md`, `app/build.gradle.kts`
+- [x] Architect plan: `/architect Quick Meditate & v0.5.0 Release Prep`
+- [x] Build phase: `/develop Quick Meditate & v0.5.0 Release Prep`
+  - [x] Add `QuickMeditateDraft`, `QuickMeditateStore` (`dhamma_meditate_prefs`), `AppContainer` wiring, and `QuickMeditateDraftTest`
+  - [x] Add ephemeral `ACTION_START_QUICK_MEDITATE` playback in `PlaybackClient` & `MeditationPlaybackService` with localized title refresh
+  - [x] Reuse `SessionEditorScreen` cards (`internal`) to build `QuickMeditateViewModel` & `QuickMeditateScreen` (top-bar Reset + immediate Distraction Check → Start)
+  - [x] Wire `QuickMeditatePlayer` in `SessionPlayerViewModel`/`SessionPlayerScreen`, 50/50 home CTA row in `SessionsScreen`, and `MainActivity` routing
+  - [x] Collect Burmese translations (zero auto-translation), update `docs/spec/dhammameditate-shared-spec.md` to v1.4, and bump `app/build.gradle.kts` to `versionCode = 5` / `versionName = "0.5.0"`
+- [x] Verify phase: `/check verify Quick Meditate & v0.5.0 Release Prep`
